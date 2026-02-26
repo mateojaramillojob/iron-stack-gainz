@@ -1,20 +1,21 @@
 import { useState } from "react";
-import { Routine, ExerciseLog, WorkoutSession } from "@/lib/types";
+import { RoutineDay, ExerciseLog, WorkoutSession, Routine } from "@/lib/types";
 import { calculateVolume, calculateSessionVolume } from "@/lib/calculations";
 import { Check, X, ChevronDown, ChevronUp } from "lucide-react";
 
 interface WorkoutSessionViewProps {
   routine: Routine;
+  day: RoutineDay;
   onFinish: (session: WorkoutSession) => void;
   onCancel: () => void;
 }
 
-const WorkoutSessionView = ({ routine, onFinish, onCancel }: WorkoutSessionViewProps) => {
+const WorkoutSessionView = ({ routine, day, onFinish, onCancel }: WorkoutSessionViewProps) => {
   const [logs, setLogs] = useState<Record<string, { weight: string; reps: string; series: string }>>(
-    Object.fromEntries(routine.exercises.map((ex) => [ex.id, { weight: "", reps: "", series: "" }]))
+    Object.fromEntries(day.exercises.map((ex) => [ex.id, { weight: "", reps: "", series: "" }]))
   );
   const [savedExercises, setSavedExercises] = useState<Set<string>>(new Set());
-  const [expandedEx, setExpandedEx] = useState<string | null>(routine.exercises[0]?.id ?? null);
+  const [expandedEx, setExpandedEx] = useState<string | null>(day.exercises[0]?.id ?? null);
 
   const updateLog = (id: string, field: "weight" | "reps" | "series", value: string) => {
     setLogs((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
@@ -24,14 +25,14 @@ const WorkoutSessionView = ({ routine, onFinish, onCancel }: WorkoutSessionViewP
     const log = logs[id];
     if (!log.weight || !log.reps || !log.series) return;
     setSavedExercises((prev) => new Set(prev).add(id));
-    const idx = routine.exercises.findIndex((e) => e.id === id);
-    if (idx < routine.exercises.length - 1) {
-      setExpandedEx(routine.exercises[idx + 1].id);
+    const idx = day.exercises.findIndex((e) => e.id === id);
+    if (idx < day.exercises.length - 1) {
+      setExpandedEx(day.exercises[idx + 1].id);
     }
   };
 
   const finishSession = () => {
-    const exerciseLogs: ExerciseLog[] = routine.exercises
+    const exerciseLogs: ExerciseLog[] = day.exercises
       .filter((ex) => savedExercises.has(ex.id))
       .map((ex) => ({
         exerciseId: ex.id,
@@ -45,6 +46,8 @@ const WorkoutSessionView = ({ routine, onFinish, onCancel }: WorkoutSessionViewP
       id: crypto.randomUUID(),
       routineId: routine.id,
       routineName: routine.name,
+      dayId: day.id,
+      dayLabel: day.label,
       date: new Date().toISOString(),
       exercises: exerciseLogs,
       totalVolume: calculateSessionVolume(exerciseLogs),
@@ -52,7 +55,7 @@ const WorkoutSessionView = ({ routine, onFinish, onCancel }: WorkoutSessionViewP
     onFinish(session);
   };
 
-  const totalVolume = routine.exercises
+  const totalVolume = day.exercises
     .filter((ex) => savedExercises.has(ex.id))
     .reduce((sum, ex) => {
       const l = logs[ex.id];
@@ -65,7 +68,7 @@ const WorkoutSessionView = ({ routine, onFinish, onCancel }: WorkoutSessionViewP
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-xl font-bold text-foreground">{routine.name}</h2>
-            <p className="text-sm text-muted-foreground">{savedExercises.size}/{routine.exercises.length} exercises done</p>
+            <p className="text-sm text-muted-foreground">{day.label} · {savedExercises.size}/{day.exercises.length} done</p>
           </div>
           <button onClick={onCancel} className="p-2 rounded-lg bg-secondary text-secondary-foreground active:scale-95 transition-transform">
             <X size={20} />
@@ -78,7 +81,7 @@ const WorkoutSessionView = ({ routine, onFinish, onCancel }: WorkoutSessionViewP
         </div>
 
         <div className="space-y-3">
-          {routine.exercises.map((ex) => {
+          {day.exercises.map((ex) => {
             const log = logs[ex.id];
             const isSaved = savedExercises.has(ex.id);
             const isExpanded = expandedEx === ex.id;
@@ -89,10 +92,7 @@ const WorkoutSessionView = ({ routine, onFinish, onCancel }: WorkoutSessionViewP
 
             return (
               <div key={ex.id} className={`bg-card rounded-xl border transition-colors ${isSaved ? "border-primary/40" : "border-border"}`}>
-                <button
-                  onClick={() => setExpandedEx(isExpanded ? null : ex.id)}
-                  className="w-full flex items-center justify-between p-4"
-                >
+                <button onClick={() => setExpandedEx(isExpanded ? null : ex.id)} className="w-full flex items-center justify-between p-4">
                   <div className="flex items-center gap-3">
                     {isSaved && <Check size={18} className="text-primary" />}
                     <span className={`font-semibold text-base ${isSaved ? "text-primary" : "text-foreground"}`}>{ex.name}</span>
@@ -130,8 +130,7 @@ const WorkoutSessionView = ({ routine, onFinish, onCancel }: WorkoutSessionViewP
                       </div>
                     )}
 
-                    <button onClick={() => saveExercise(ex.id)}
-                      disabled={!w || !r || !s}
+                    <button onClick={() => saveExercise(ex.id)} disabled={!w || !r || !s}
                       className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-base disabled:opacity-40 active:scale-[0.98] transition-transform">
                       {isSaved ? "Update" : "Save Exercise"}
                     </button>
