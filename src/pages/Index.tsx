@@ -18,7 +18,7 @@ const Index = () => {
   const [allSessions, setAllSessions] = useLocalStorage<Record<string, WorkoutSession[]>>("ironstack-sessions-v2", {});
 
   const [tab, setTab] = useState<Tab>("dashboard");
-  const [activeSession, setActiveSession] = useState<{ routine: Routine; day: RoutineDay } | null>(null);
+  const [activeSession, setActiveSession] = useState<{ routine: Routine; day: RoutineDay; editSession?: WorkoutSession } | null>(null);
 
   const activeProfile = profiles.find((p) => p.id === activeProfileId) || null;
   const routines = activeProfileId ? allRoutines[activeProfileId] || [] : [];
@@ -44,9 +44,21 @@ const Index = () => {
   const deleteRoutine = (id: string) => setRoutines((prev) => prev.filter((r) => r.id !== id));
 
   const finishSession = (session: WorkoutSession) => {
-    setSessions((prev) => [...prev, session]);
+    setSessions((prev) => {
+      const exists = prev.find((s) => s.id === session.id);
+      if (exists) return prev.map((s) => (s.id === session.id ? session : s));
+      return [...prev, session];
+    });
     setActiveSession(null);
     setTab("dashboard");
+  };
+
+  const editSession = (session: WorkoutSession) => {
+    const routine = routines.find((r) => r.id === session.routineId);
+    const day = routine?.days.find((d) => d.id === session.dayId);
+    if (routine && day) {
+      setActiveSession({ routine, day, editSession: session });
+    }
   };
 
   // Profile selection screen
@@ -61,6 +73,7 @@ const Index = () => {
         day={activeSession.day}
         onFinish={finishSession}
         onCancel={() => setActiveSession(null)}
+        editSession={activeSession.editSession}
       />
     );
   }
@@ -124,7 +137,7 @@ const Index = () => {
           )}
         </div>
 
-        <Dashboard sessions={sessions} />
+        <Dashboard sessions={sessions} onEditSession={editSession} />
       </div>
 
       <nav className="fixed bottom-0 left-0 right-0 bg-card/90 backdrop-blur-lg border-t border-border">

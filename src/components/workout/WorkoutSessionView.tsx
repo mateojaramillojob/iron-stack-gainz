@@ -1,20 +1,39 @@
 import { useState } from "react";
 import { RoutineDay, ExerciseLog, WorkoutSession, Routine } from "@/lib/types";
 import { calculateVolume, calculateSessionVolume } from "@/lib/calculations";
-import { Check, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, X, ChevronDown, ChevronUp, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface WorkoutSessionViewProps {
   routine: Routine;
   day: RoutineDay;
   onFinish: (session: WorkoutSession) => void;
   onCancel: () => void;
+  /** If provided, we are editing an existing session */
+  editSession?: WorkoutSession;
 }
 
-const WorkoutSessionView = ({ routine, day, onFinish, onCancel }: WorkoutSessionViewProps) => {
+const WorkoutSessionView = ({ routine, day, onFinish, onCancel, editSession }: WorkoutSessionViewProps) => {
+  const [sessionDate, setSessionDate] = useState<Date>(editSession ? new Date(editSession.date) : new Date());
+
   const [logs, setLogs] = useState<Record<string, { weight: string; reps: string; series: string }>>(
-    Object.fromEntries(day.exercises.map((ex) => [ex.id, { weight: "", reps: "", series: "" }]))
+    editSession
+      ? Object.fromEntries(
+          day.exercises.map((ex) => {
+            const existing = editSession.exercises.find((e) => e.exerciseId === ex.id);
+            return [ex.id, existing
+              ? { weight: String(existing.weight), reps: String(existing.reps), series: String(existing.series) }
+              : { weight: "", reps: "", series: "" }];
+          })
+        )
+      : Object.fromEntries(day.exercises.map((ex) => [ex.id, { weight: "", reps: "", series: "" }]))
   );
-  const [savedExercises, setSavedExercises] = useState<Set<string>>(new Set());
+  const [savedExercises, setSavedExercises] = useState<Set<string>>(
+    editSession ? new Set(editSession.exercises.map((e) => e.exerciseId)) : new Set()
+  );
   const [expandedEx, setExpandedEx] = useState<string | null>(day.exercises[0]?.id ?? null);
 
   const updateLog = (id: string, field: "weight" | "reps" | "series", value: string) => {
@@ -43,12 +62,12 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel }: WorkoutSession
       }));
 
     const session: WorkoutSession = {
-      id: crypto.randomUUID(),
+      id: editSession?.id || crypto.randomUUID(),
       routineId: routine.id,
       routineName: routine.name,
       dayId: day.id,
       dayLabel: day.label,
-      date: new Date().toISOString(),
+      date: sessionDate.toISOString(),
       exercises: exerciseLogs,
       totalVolume: calculateSessionVolume(exerciseLogs),
     };
@@ -73,6 +92,29 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel }: WorkoutSession
           <button onClick={onCancel} className="p-2 rounded-lg bg-secondary text-secondary-foreground active:scale-95 transition-transform">
             <X size={20} />
           </button>
+        </div>
+
+        {/* Date Picker */}
+        <div className="mb-4">
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className={cn(
+                "w-full flex items-center gap-2 px-4 py-3 rounded-xl bg-card border border-border text-left transition-colors active:scale-[0.98]",
+              )}>
+                <CalendarIcon size={16} className="text-primary" />
+                <span className="text-sm font-semibold text-foreground">{format(sessionDate, "EEEE, MMMM d, yyyy")}</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={sessionDate}
+                onSelect={(d) => d && setSessionDate(d)}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
 
         <div className="bg-card rounded-xl p-4 border border-border mb-4">
@@ -147,7 +189,7 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel }: WorkoutSession
           <div className="max-w-md mx-auto">
             <button onClick={finishSession}
               className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold text-lg active:scale-[0.98] transition-transform glow-emerald">
-              Finish Session
+              {editSession ? "Save Changes" : "Finish Session"}
             </button>
           </div>
         </div>
