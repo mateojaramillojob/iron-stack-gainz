@@ -5,7 +5,7 @@ export interface Exercise {
 
 export interface RoutineDay {
   id: string;
-  label: string; // e.g. "Day 1", "Day 2"
+  label: string;
   exercises: Exercise[];
 }
 
@@ -33,4 +33,11 @@ export interface WorkoutSession {
   date: string;
   exercises: ExerciseLog[];
   totalVolume: number;
+}
+
+export interface Profile {
+  id: string;
+  name: string;
+  emoji: string;
+  createdAt: string;
 }

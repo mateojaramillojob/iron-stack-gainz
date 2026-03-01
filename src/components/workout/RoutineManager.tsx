@@ -1,19 +1,35 @@
 import { useState } from "react";
 import { Routine, RoutineDay, Exercise } from "@/lib/types";
-import { Plus, Trash2, X, Dumbbell, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, X, Dumbbell, ChevronDown, ChevronUp, Pencil, Check } from "lucide-react";
 
 interface RoutineManagerProps {
   routines: Routine[];
   onSave: (routine: Routine) => void;
+  onUpdate: (routine: Routine) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
 }
 
-const RoutineManager = ({ routines, onSave, onDelete, onClose }: RoutineManagerProps) => {
+const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose }: RoutineManagerProps) => {
   const [name, setName] = useState("");
   const [days, setDays] = useState<RoutineDay[]>([]);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [exerciseInputs, setExerciseInputs] = useState<Record<string, string>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const startEdit = (routine: Routine) => {
+    setEditingId(routine.id);
+    setName(routine.name);
+    setDays(routine.days.map((d) => ({ ...d, exercises: [...d.exercises] })));
+    setExpandedDay(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setName("");
+    setDays([]);
+    setExpandedDay(null);
+  };
 
   const addDay = () => {
     const day: RoutineDay = { id: crypto.randomUUID(), label: `Day ${days.length + 1}`, exercises: [] };
@@ -23,6 +39,10 @@ const RoutineManager = ({ routines, onSave, onDelete, onClose }: RoutineManagerP
 
   const removeDay = (id: string) => {
     setDays((prev) => prev.filter((d) => d.id !== id));
+  };
+
+  const updateDayLabel = (dayId: string, label: string) => {
+    setDays((prev) => prev.map((d) => (d.id === dayId ? { ...d, label } : d)));
   };
 
   const addExerciseToDay = (dayId: string) => {
@@ -46,19 +66,34 @@ const RoutineManager = ({ routines, onSave, onDelete, onClose }: RoutineManagerP
 
   const saveRoutine = () => {
     if (!name.trim() || days.length === 0 || days.every((d) => d.exercises.length === 0)) return;
-    const routine: Routine = {
-      id: crypto.randomUUID(),
-      name: name.trim(),
-      days,
-      createdAt: new Date().toISOString(),
-    };
-    onSave(routine);
+
+    if (editingId) {
+      const updated: Routine = {
+        id: editingId,
+        name: name.trim(),
+        days,
+        createdAt: routines.find((r) => r.id === editingId)?.createdAt || new Date().toISOString(),
+      };
+      onUpdate(updated);
+    } else {
+      const routine: Routine = {
+        id: crypto.randomUUID(),
+        name: name.trim(),
+        days,
+        createdAt: new Date().toISOString(),
+      };
+      onSave(routine);
+    }
+
     setName("");
     setDays([]);
     setExpandedDay(null);
+    setEditingId(null);
   };
 
   const canSave = name.trim() && days.length > 0 && days.some((d) => d.exercises.length > 0);
+  const isEditing = editingId !== null;
+  const isFormOpen = isEditing || name !== "" || days.length > 0;
 
   return (
     <div className="min-h-screen bg-background p-4 pb-24">
@@ -70,9 +105,16 @@ const RoutineManager = ({ routines, onSave, onDelete, onClose }: RoutineManagerP
           </button>
         </div>
 
-        {/* Create new routine */}
+        {/* Create / Edit routine */}
         <div className="bg-card rounded-xl p-5 border border-border mb-6">
-          <h3 className="text-lg font-semibold text-foreground mb-4">New Routine</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-foreground">{isEditing ? "Edit Routine" : "New Routine"}</h3>
+            {isEditing && (
+              <button onClick={cancelEdit} className="text-xs text-muted-foreground font-medium px-3 py-1 rounded-lg bg-secondary active:scale-95 transition-transform">
+                Cancel
+              </button>
+            )}
+          </div>
           <input
             type="text"
             placeholder="Routine name (e.g. Build Up)"
@@ -100,6 +142,13 @@ const RoutineManager = ({ routines, onSave, onDelete, onClose }: RoutineManagerP
 
                   {isExpanded && (
                     <div className="px-3.5 pb-3.5 space-y-2">
+                      <input
+                        type="text"
+                        value={day.label}
+                        onChange={(e) => updateDayLabel(day.id, e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg bg-background text-foreground text-sm font-medium border-0 outline-none focus:ring-2 focus:ring-primary mb-1"
+                        placeholder="Day name..."
+                      />
                       {day.exercises.map((ex) => (
                         <div key={ex.id} className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-background">
                           <span className="text-sm font-medium text-foreground">{ex.name}</span>
@@ -143,7 +192,7 @@ const RoutineManager = ({ routines, onSave, onDelete, onClose }: RoutineManagerP
             disabled={!canSave}
             className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold text-base disabled:opacity-40 active:scale-[0.98] transition-transform glow-emerald"
           >
-            Save Routine
+            {isEditing ? "Update Routine" : "Save Routine"}
           </button>
         </div>
 
@@ -156,9 +205,14 @@ const RoutineManager = ({ routines, onSave, onDelete, onClose }: RoutineManagerP
                   <Dumbbell size={18} className="text-primary" />
                   <h4 className="text-base font-bold text-foreground">{routine.name}</h4>
                 </div>
-                <button onClick={() => onDelete(routine.id)} className="text-muted-foreground active:text-destructive p-1">
-                  <Trash2 size={16} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => startEdit(routine)} className="text-muted-foreground active:text-primary p-1">
+                    <Pencil size={16} />
+                  </button>
+                  <button onClick={() => onDelete(routine.id)} className="text-muted-foreground active:text-destructive p-1">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
               <p className="text-xs text-muted-foreground mb-2">{routine.days.length} days</p>
               <div className="space-y-1.5">
