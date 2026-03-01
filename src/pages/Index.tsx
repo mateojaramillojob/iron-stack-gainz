@@ -1,21 +1,46 @@
 import { useState } from "react";
-import { Routine, RoutineDay, WorkoutSession } from "@/lib/types";
+import { Profile, Routine, RoutineDay, WorkoutSession } from "@/lib/types";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import ProfileSelector from "@/components/workout/ProfileSelector";
 import RoutineManager from "@/components/workout/RoutineManager";
 import WorkoutSessionView from "@/components/workout/WorkoutSessionView";
 import Dashboard from "@/components/workout/Dashboard";
-import { Dumbbell, BarChart3, ListChecks, Play } from "lucide-react";
+import { Dumbbell, BarChart3, ListChecks, Play, LogOut } from "lucide-react";
 
 type Tab = "dashboard" | "routines";
 
 const Index = () => {
-  const [routines, setRoutines] = useLocalStorage<Routine[]>("ironstack-routines", []);
-  const [sessions, setSessions] = useLocalStorage<WorkoutSession[]>("ironstack-sessions", []);
+  const [profiles, setProfiles] = useLocalStorage<Profile[]>("ironstack-profiles", []);
+  const [activeProfileId, setActiveProfileId] = useLocalStorage<string | null>("ironstack-active-profile", null);
+
+  // Per-profile data keyed by profile id
+  const [allRoutines, setAllRoutines] = useLocalStorage<Record<string, Routine[]>>("ironstack-routines-v2", {});
+  const [allSessions, setAllSessions] = useLocalStorage<Record<string, WorkoutSession[]>>("ironstack-sessions-v2", {});
 
   const [tab, setTab] = useState<Tab>("dashboard");
   const [activeSession, setActiveSession] = useState<{ routine: Routine; day: RoutineDay } | null>(null);
 
+  const activeProfile = profiles.find((p) => p.id === activeProfileId) || null;
+  const routines = activeProfileId ? allRoutines[activeProfileId] || [] : [];
+  const sessions = activeProfileId ? allSessions[activeProfileId] || [] : [];
+
+  const setRoutines = (updater: (prev: Routine[]) => Routine[]) => {
+    if (!activeProfileId) return;
+    setAllRoutines((prev) => ({ ...prev, [activeProfileId]: updater(prev[activeProfileId] || []) }));
+  };
+  const setSessions = (updater: (prev: WorkoutSession[]) => WorkoutSession[]) => {
+    if (!activeProfileId) return;
+    setAllSessions((prev) => ({ ...prev, [activeProfileId]: updater(prev[activeProfileId] || []) }));
+  };
+
+  const saveProfile = (profile: Profile) => setProfiles((prev) => [...prev, profile]);
+  const deleteProfile = (id: string) => {
+    setProfiles((prev) => prev.filter((p) => p.id !== id));
+    if (activeProfileId === id) setActiveProfileId(null);
+  };
+
   const saveRoutine = (routine: Routine) => setRoutines((prev) => [...prev, routine]);
+  const updateRoutine = (routine: Routine) => setRoutines((prev) => prev.map((r) => (r.id === routine.id ? routine : r)));
   const deleteRoutine = (id: string) => setRoutines((prev) => prev.filter((r) => r.id !== id));
 
   const finishSession = (session: WorkoutSession) => {
@@ -23,6 +48,11 @@ const Index = () => {
     setActiveSession(null);
     setTab("dashboard");
   };
+
+  // Profile selection screen
+  if (!activeProfile) {
+    return <ProfileSelector profiles={profiles} onSelect={(p) => setActiveProfileId(p.id)} onSave={saveProfile} onDelete={deleteProfile} />;
+  }
 
   if (activeSession) {
     return (
@@ -36,17 +66,25 @@ const Index = () => {
   }
 
   if (tab === "routines") {
-    return <RoutineManager routines={routines} onSave={saveRoutine} onDelete={deleteRoutine} onClose={() => setTab("dashboard")} />;
+    return <RoutineManager routines={routines} onSave={saveRoutine} onUpdate={updateRoutine} onDelete={deleteRoutine} onClose={() => setTab("dashboard")} />;
   }
 
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-md mx-auto p-4">
-        <div className="flex items-center gap-2.5 mb-6 pt-2">
-          <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-            <Dumbbell size={20} className="text-primary-foreground" />
+        <div className="flex items-center justify-between mb-6 pt-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
+              <Dumbbell size={20} className="text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black text-foreground tracking-tight leading-none">Iron Stack</h1>
+              <p className="text-xs text-muted-foreground">{activeProfile.emoji} {activeProfile.name}</p>
+            </div>
           </div>
-          <h1 className="text-2xl font-black text-foreground tracking-tight">Iron Stack</h1>
+          <button onClick={() => setActiveProfileId(null)} className="p-2 rounded-lg bg-secondary text-secondary-foreground active:scale-95 transition-transform">
+            <LogOut size={18} />
+          </button>
         </div>
 
         {/* Start Workout */}
