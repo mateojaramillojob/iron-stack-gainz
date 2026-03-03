@@ -1,53 +1,81 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Profile, Routine, RoutineDay, WorkoutSession } from "@/lib/types";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
+import {
+  fetchProfiles, insertProfile, deleteProfileById,
+  fetchRoutinesForProfile, upsertRoutine, deleteRoutineById,
+  fetchSessionsForProfile, upsertSession,
+} from "@/lib/supabaseQueries";
 import ProfileSelector from "@/components/workout/ProfileSelector";
 import RoutineManager from "@/components/workout/RoutineManager";
 import WorkoutSessionView from "@/components/workout/WorkoutSessionView";
 import Dashboard from "@/components/workout/Dashboard";
-import { Dumbbell, BarChart3, ListChecks, Play, LogOut } from "lucide-react";
+import { Dumbbell, BarChart3, ListChecks, Play, LogOut, Loader2 } from "lucide-react";
 
 type Tab = "dashboard" | "routines";
 
 const Index = () => {
-  const [profiles, setProfiles] = useLocalStorage<Profile[]>("ironstack-profiles", []);
-  const [activeProfileId, setActiveProfileId] = useLocalStorage<string | null>("ironstack-active-profile", null);
-
-  // Per-profile data keyed by profile id
-  const [allRoutines, setAllRoutines] = useLocalStorage<Record<string, Routine[]>>("ironstack-routines-v2", {});
-  const [allSessions, setAllSessions] = useLocalStorage<Record<string, WorkoutSession[]>>("ironstack-sessions-v2", {});
-
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(() => {
+    try { return localStorage.getItem("ironstack-active-profile-id"); } catch { return null; }
+  });
+  const [routines, setRoutines] = useState<Routine[]>([]);
+  const [sessions, setSessions] = useState<WorkoutSession[]>([]);
+  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("dashboard");
   const [activeSession, setActiveSession] = useState<{ routine: Routine; day: RoutineDay; editSession?: WorkoutSession } | null>(null);
 
+  // Load profiles
+  useEffect(() => {
+    fetchProfiles().then(setProfiles).catch(console.error).finally(() => setLoading(false));
+  }, []);
+
+  // Load routines & sessions when profile changes
+  useEffect(() => {
+    if (!activeProfileId) { setRoutines([]); setSessions([]); return; }
+    localStorage.setItem("ironstack-active-profile-id", activeProfileId);
+    Promise.all([
+      fetchRoutinesForProfile(activeProfileId),
+      fetchSessionsForProfile(activeProfileId),
+    ]).then(([r, s]) => { setRoutines(r); setSessions(s); }).catch(console.error);
+  }, [activeProfileId]);
+
   const activeProfile = profiles.find((p) => p.id === activeProfileId) || null;
-  const routines = activeProfileId ? allRoutines[activeProfileId] || [] : [];
-  const sessions = activeProfileId ? allSessions[activeProfileId] || [] : [];
 
-  const setRoutines = (updater: (prev: Routine[]) => Routine[]) => {
-    if (!activeProfileId) return;
-    setAllRoutines((prev) => ({ ...prev, [activeProfileId]: updater(prev[activeProfileId] || []) }));
-  };
-  const setSessions = (updater: (prev: WorkoutSession[]) => WorkoutSession[]) => {
-    if (!activeProfileId) return;
-    setAllSessions((prev) => ({ ...prev, [activeProfileId]: updater(prev[activeProfileId] || []) }));
+  const saveProfile = async (profile: Profile) => {
+    await insertProfile(profile);
+    setProfiles((prev) => [...prev, profile]);
   };
 
-  const saveProfile = (profile: Profile) => setProfiles((prev) => [...prev, profile]);
-  const deleteProfile = (id: string) => {
+  const deleteProfile = async (id: string) => {
+    await deleteProfileById(id);
     setProfiles((prev) => prev.filter((p) => p.id !== id));
-    if (activeProfileId === id) setActiveProfileId(null);
+    if (activeProfileId === id) { setActiveProfileId(null); localStorage.removeItem("ironstack-active-profile-id"); }
   };
 
-  const saveRoutine = (routine: Routine) => setRoutines((prev) => [...prev, routine]);
-  const updateRoutine = (routine: Routine) => setRoutines((prev) => prev.map((r) => (r.id === routine.id ? routine : r)));
-  const deleteRoutine = (id: string) => setRoutines((prev) => prev.filter((r) => r.id !== id));
+  const saveRoutine = async (routine: Routine) => {
+    if (!activeProfileId) return;
+    await upsertRoutine(activeProfileId, routine);
+    setRoutines((prev) => [...prev, routine]);
+  };
 
-  const finishSession = (session: WorkoutSession) => {
+  const updateRoutine = async (routine: Routine) => {
+    if (!activeProfileId) return;
+    await upsertRoutine(activeProfileId, routine);
+    setRoutines((prev) => prev.map((r) => (r.id === routine.id ? routine : r)));
+  };
+
+  const deleteRoutine = async (id: string) => {
+    await deleteRoutineById(id);
+    setRoutines((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const finishSession = async (session: WorkoutSession) => {
+    if (!activeProfileId) return;
+    await upsertSession(activeProfileId, session);
     setSessions((prev) => {
       const exists = prev.find((s) => s.id === session.id);
       if (exists) return prev.map((s) => (s.id === session.id ? session : s));
-      return [...prev, session];
+      return [session, ...prev];
     });
     setActiveSession(null);
     setTab("dashboard");
@@ -56,12 +84,17 @@ const Index = () => {
   const editSession = (session: WorkoutSession) => {
     const routine = routines.find((r) => r.id === session.routineId);
     const day = routine?.days.find((d) => d.id === session.dayId);
-    if (routine && day) {
-      setActiveSession({ routine, day, editSession: session });
-    }
+    if (routine && day) setActiveSession({ routine, day, editSession: session });
   };
 
-  // Profile selection screen
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="animate-spin text-primary" size={32} />
+      </div>
+    );
+  }
+
   if (!activeProfile) {
     return <ProfileSelector profiles={profiles} onSelect={(p) => setActiveProfileId(p.id)} onSave={saveProfile} onDelete={deleteProfile} />;
   }
@@ -95,7 +128,7 @@ const Index = () => {
               <p className="text-xs text-muted-foreground">{activeProfile.emoji} {activeProfile.name}</p>
             </div>
           </div>
-          <button onClick={() => setActiveProfileId(null)} className="p-2 rounded-lg bg-secondary text-secondary-foreground active:scale-95 transition-transform">
+          <button onClick={() => { setActiveProfileId(null); localStorage.removeItem("ironstack-active-profile-id"); }} className="p-2 rounded-lg bg-secondary text-secondary-foreground active:scale-95 transition-transform">
             <LogOut size={18} />
           </button>
         </div>
