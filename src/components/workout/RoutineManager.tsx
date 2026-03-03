@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Routine, RoutineDay, Exercise } from "@/lib/types";
-import { Plus, Trash2, X, Dumbbell, ChevronDown, ChevronUp, Pencil, Check } from "lucide-react";
+import { Plus, Trash2, X, Dumbbell, ChevronDown, ChevronUp, Pencil } from "lucide-react";
+import ExerciseSelector from "./ExerciseSelector";
+import { getMuscleGroupForExercise } from "@/lib/exerciseLibrary";
 
 interface RoutineManagerProps {
   routines: Routine[];
@@ -14,8 +16,8 @@ const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose }: Routi
   const [name, setName] = useState("");
   const [days, setDays] = useState<RoutineDay[]>([]);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
-  const [exerciseInputs, setExerciseInputs] = useState<Record<string, string>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [addingExerciseDayId, setAddingExerciseDayId] = useState<string | null>(null);
 
   const startEdit = (routine: Routine) => {
     setEditingId(routine.id);
@@ -37,54 +39,46 @@ const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose }: Routi
     setExpandedDay(day.id);
   };
 
-  const removeDay = (id: string) => {
-    setDays((prev) => prev.filter((d) => d.id !== id));
-  };
+  const removeDay = (id: string) => setDays((prev) => prev.filter((d) => d.id !== id));
 
-  const updateDayLabel = (dayId: string, label: string) => {
+  const updateDayLabel = (dayId: string, label: string) =>
     setDays((prev) => prev.map((d) => (d.id === dayId ? { ...d, label } : d)));
-  };
 
-  const addExerciseToDay = (dayId: string) => {
-    const input = exerciseInputs[dayId]?.trim();
-    if (!input) return;
+  const addExerciseToDay = (dayId: string, exerciseName: string, muscleGroup: string) => {
     setDays((prev) =>
       prev.map((d) =>
-        d.id === dayId ? { ...d, exercises: [...d.exercises, { id: crypto.randomUUID(), name: input }] } : d
+        d.id === dayId
+          ? { ...d, exercises: [...d.exercises, { id: crypto.randomUUID(), name: exerciseName, muscleGroup }] }
+          : d
       )
     );
-    setExerciseInputs((prev) => ({ ...prev, [dayId]: "" }));
+    setAddingExerciseDayId(null);
   };
 
-  const removeExercise = (dayId: string, exId: string) => {
+  const removeExercise = (dayId: string, exId: string) =>
     setDays((prev) =>
       prev.map((d) =>
         d.id === dayId ? { ...d, exercises: d.exercises.filter((e) => e.id !== exId) } : d
       )
     );
-  };
 
   const saveRoutine = () => {
     if (!name.trim() || days.length === 0 || days.every((d) => d.exercises.length === 0)) return;
-
     if (editingId) {
-      const updated: Routine = {
+      onUpdate({
         id: editingId,
         name: name.trim(),
         days,
         createdAt: routines.find((r) => r.id === editingId)?.createdAt || new Date().toISOString(),
-      };
-      onUpdate(updated);
+      });
     } else {
-      const routine: Routine = {
+      onSave({
         id: crypto.randomUUID(),
         name: name.trim(),
         days,
         createdAt: new Date().toISOString(),
-      };
-      onSave(routine);
+      });
     }
-
     setName("");
     setDays([]);
     setExpandedDay(null);
@@ -93,7 +87,6 @@ const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose }: Routi
 
   const canSave = name.trim() && days.length > 0 && days.some((d) => d.exercises.length > 0);
   const isEditing = editingId !== null;
-  const isFormOpen = isEditing || name !== "" || days.length > 0;
 
   return (
     <div className="min-h-screen bg-background p-4 pb-24">
@@ -149,27 +142,36 @@ const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose }: Routi
                         className="w-full px-3 py-2 rounded-lg bg-background text-foreground text-sm font-medium border-0 outline-none focus:ring-2 focus:ring-primary mb-1"
                         placeholder="Day name..."
                       />
+
+                      {/* Exercise cards */}
                       {day.exercises.map((ex) => (
-                        <div key={ex.id} className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-background">
-                          <span className="text-sm font-medium text-foreground">{ex.name}</span>
-                          <button onClick={() => removeExercise(day.id, ex.id)} className="text-muted-foreground active:text-destructive">
+                        <div key={ex.id} className="flex items-center justify-between px-3 py-3 rounded-xl bg-background border border-border">
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">{ex.name}</p>
+                            <p className="text-xs text-muted-foreground">{(ex as any).muscleGroup || getMuscleGroupForExercise(ex.name)}</p>
+                          </div>
+                          <button onClick={() => removeExercise(day.id, ex.id)} className="text-muted-foreground active:text-destructive p-1">
                             <Trash2 size={14} />
                           </button>
                         </div>
                       ))}
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="Add exercise..."
-                          value={exerciseInputs[day.id] || ""}
-                          onChange={(e) => setExerciseInputs((prev) => ({ ...prev, [day.id]: e.target.value }))}
-                          onKeyDown={(e) => e.key === "Enter" && addExerciseToDay(day.id)}
-                          className="flex-1 px-3 py-3 rounded-lg bg-background text-foreground placeholder:text-muted-foreground text-sm font-medium border-0 outline-none focus:ring-2 focus:ring-primary"
+
+                      {/* Exercise Selector or Add button */}
+                      {addingExerciseDayId === day.id ? (
+                        <ExerciseSelector
+                          onSelect={(name, muscleGroup) => addExerciseToDay(day.id, name, muscleGroup)}
+                          onClose={() => setAddingExerciseDayId(null)}
                         />
-                        <button onClick={() => addExerciseToDay(day.id)} className="p-3 rounded-lg bg-primary text-primary-foreground active:scale-95 transition-transform">
+                      ) : (
+                        <button
+                          onClick={() => setAddingExerciseDayId(day.id)}
+                          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary/10 text-primary font-semibold text-sm active:scale-[0.98] transition-transform"
+                        >
                           <Plus size={16} />
+                          Add Exercise
                         </button>
-                      </div>
+                      )}
+
                       <button onClick={() => removeDay(day.id)} className="w-full py-2 text-xs text-destructive font-medium active:opacity-70">
                         Remove Day
                       </button>
@@ -180,10 +182,7 @@ const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose }: Routi
             })}
           </div>
 
-          <button
-            onClick={addDay}
-            className="w-full py-3 rounded-xl bg-secondary text-secondary-foreground font-semibold text-sm mb-4 active:scale-[0.98] transition-transform"
-          >
+          <button onClick={addDay} className="w-full py-3 rounded-xl bg-secondary text-secondary-foreground font-semibold text-sm mb-4 active:scale-[0.98] transition-transform">
             + Add Day
           </button>
 
