@@ -4,6 +4,7 @@ import {
   fetchProfiles, insertProfile, deleteProfileById,
   fetchRoutinesForProfile, upsertRoutine, deleteRoutineById,
   fetchSessionsForProfile, upsertSession,
+  fetchCustomExercises, insertCustomExercise,
 } from "@/lib/supabaseQueries";
 import ProfileSelector from "@/components/workout/ProfileSelector";
 import RoutineManager from "@/components/workout/RoutineManager";
@@ -20,6 +21,7 @@ const Index = () => {
   });
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
+  const [customExercises, setCustomExercises] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("dashboard");
   const [activeSession, setActiveSession] = useState<{ routine: Routine; day: RoutineDay; editSession?: WorkoutSession } | null>(null);
@@ -36,7 +38,8 @@ const Index = () => {
     Promise.all([
       fetchRoutinesForProfile(activeProfileId),
       fetchSessionsForProfile(activeProfileId),
-    ]).then(([r, s]) => { setRoutines(r); setSessions(s); }).catch(console.error);
+      fetchCustomExercises(activeProfileId),
+    ]).then(([r, s, ce]) => { setRoutines(r); setSessions(s); setCustomExercises(ce); }).catch(console.error);
   }, [activeProfileId]);
 
   const activeProfile = profiles.find((p) => p.id === activeProfileId) || null;
