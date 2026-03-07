@@ -10,6 +10,8 @@ interface RoutineManagerProps {
   onUpdate: (routine: Routine) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
+  customExercises?: Record<string, string[]>;
+  onAddCustomExercise?: (muscleGroup: string, exerciseName: string) => void;
 }
 
 const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose }: RoutineManagerProps) => {

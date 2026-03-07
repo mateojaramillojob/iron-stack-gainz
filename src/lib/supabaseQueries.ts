@@ -155,6 +155,33 @@ export async function fetchSessionsForProfile(profileId: string): Promise<Workou
   }));
 }
 
+// ── Custom Exercises ──
+
+export async function fetchCustomExercises(profileId: string): Promise<Record<string, string[]>> {
+  const { data, error } = await supabase
+    .from("custom_exercises")
+    .select("*")
+    .eq("profile_id", profileId);
+  if (error) throw error;
+  const map: Record<string, string[]> = {};
+  for (const row of data || []) {
+    if (!map[row.muscle_group]) map[row.muscle_group] = [];
+    map[row.muscle_group].push(row.exercise_name);
+  }
+  return map;
+}
+
+export async function insertCustomExercise(profileId: string, muscleGroup: string, exerciseName: string) {
+  const { error } = await supabase.from("custom_exercises").upsert({
+    profile_id: profileId,
+    muscle_group: muscleGroup,
+    exercise_name: exerciseName,
+  }, { onConflict: "profile_id,muscle_group,exercise_name" });
+  if (error) throw error;
+}
+
+// ── Sessions ──
+
 export async function upsertSession(profileId: string, session: WorkoutSession) {
   const { error: sErr } = await supabase.from("workout_sessions").upsert({
     id: session.id,
