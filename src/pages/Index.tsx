@@ -124,7 +124,7 @@ const Index = () => {
   }
 
   if (tab === "routines") {
-    return <RoutineManager routines={routines} onSave={saveRoutine} onUpdate={updateRoutine} onDelete={deleteRoutine} onClose={() => setTab("dashboard")} />;
+    return <RoutineManager routines={routines} onSave={saveRoutine} onUpdate={updateRoutine} onDelete={deleteRoutine} onClose={() => setTab("dashboard")} customExercises={customExercises} onAddCustomExercise={handleAddCustomExercise} />;
   }
 
   return (
