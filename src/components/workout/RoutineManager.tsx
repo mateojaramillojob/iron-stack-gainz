@@ -10,9 +10,11 @@ interface RoutineManagerProps {
   onUpdate: (routine: Routine) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
+  customExercises?: Record<string, string[]>;
+  onAddCustomExercise?: (muscleGroup: string, exerciseName: string) => void;
 }
 
-const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose }: RoutineManagerProps) => {
+const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose, customExercises = {}, onAddCustomExercise }: RoutineManagerProps) => {
   const [name, setName] = useState("");
   const [days, setDays] = useState<RoutineDay[]>([]);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
@@ -161,6 +163,8 @@ const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose }: Routi
                         <ExerciseSelector
                           onSelect={(name, muscleGroup) => addExerciseToDay(day.id, name, muscleGroup)}
                           onClose={() => setAddingExerciseDayId(null)}
+                          customExercises={customExercises}
+                          onAddCustomExercise={onAddCustomExercise}
                         />
                       ) : (
                         <button
