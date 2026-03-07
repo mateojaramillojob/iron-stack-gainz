@@ -90,6 +90,15 @@ const Index = () => {
     if (routine && day) setActiveSession({ routine, day, editSession: session });
   };
 
+  const handleAddCustomExercise = async (muscleGroup: string, exerciseName: string) => {
+    if (!activeProfileId) return;
+    await insertCustomExercise(activeProfileId, muscleGroup, exerciseName);
+    setCustomExercises((prev) => ({
+      ...prev,
+      [muscleGroup]: [...(prev[muscleGroup] || []), exerciseName],
+    }));
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
