@@ -10,7 +10,9 @@ import ProfileSelector from "@/components/workout/ProfileSelector";
 import RoutineManager from "@/components/workout/RoutineManager";
 import WorkoutSessionView from "@/components/workout/WorkoutSessionView";
 import Dashboard from "@/components/workout/Dashboard";
-import { Dumbbell, BarChart3, ListChecks, Play, LogOut, Loader2 } from "lucide-react";
+import AIRoutineBuilder from "@/components/workout/AIRoutineBuilder";
+import { Dumbbell, BarChart3, ListChecks, Play, LogOut, Loader2, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 
 type Tab = "dashboard" | "routines";
 
@@ -25,13 +27,12 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("dashboard");
   const [activeSession, setActiveSession] = useState<{ routine: Routine; day: RoutineDay; editSession?: WorkoutSession } | null>(null);
+  const [showAIBuilder, setShowAIBuilder] = useState(false);
 
-  // Load profiles
   useEffect(() => {
     fetchProfiles().then(setProfiles).catch(console.error).finally(() => setLoading(false));
   }, []);
 
-  // Load routines & sessions when profile changes
   useEffect(() => {
     if (!activeProfileId) { setRoutines([]); setSessions([]); return; }
     localStorage.setItem("ironstack-active-profile-id", activeProfileId);
@@ -99,6 +100,12 @@ const Index = () => {
     }));
   };
 
+  const handleAIRoutineGenerated = async (routine: Routine) => {
+    await saveRoutine(routine);
+    setShowAIBuilder(false);
+    toast.success("AI routine saved!");
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -109,6 +116,10 @@ const Index = () => {
 
   if (!activeProfile) {
     return <ProfileSelector profiles={profiles} onSelect={(p) => setActiveProfileId(p.id)} onSave={saveProfile} onDelete={deleteProfile} />;
+  }
+
+  if (showAIBuilder) {
+    return <AIRoutineBuilder onGenerated={handleAIRoutineGenerated} onClose={() => setShowAIBuilder(false)} />;
   }
 
   if (activeSession) {
@@ -145,6 +156,18 @@ const Index = () => {
           </button>
         </div>
 
+        {/* AI Routine Builder CTA */}
+        <button onClick={() => setShowAIBuilder(true)}
+          className="w-full flex items-center gap-3 p-4 mb-4 bg-primary/10 rounded-xl border border-primary/20 active:scale-[0.98] transition-transform">
+          <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+            <Sparkles size={20} className="text-primary-foreground" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-bold text-foreground">AI Routine Builder</p>
+            <p className="text-xs text-muted-foreground">Generate a personalized routine in seconds</p>
+          </div>
+        </button>
+
         {/* Start Workout */}
         <div className="mb-4">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Start Workout</h2>
@@ -158,11 +181,8 @@ const Index = () => {
                   </div>
                   <div className="space-y-2">
                     {routine.days.map((day) => (
-                      <button
-                        key={day.id}
-                        onClick={() => setActiveSession({ routine, day })}
-                        className="w-full flex items-center justify-between p-3 bg-muted rounded-lg active:scale-[0.98] transition-transform"
-                      >
+                      <button key={day.id} onClick={() => setActiveSession({ routine, day })}
+                        className="w-full flex items-center justify-between p-3 bg-muted rounded-lg active:scale-[0.98] transition-transform">
                         <div className="text-left">
                           <p className="text-sm font-semibold text-foreground">{day.label}</p>
                           <p className="text-xs text-muted-foreground">{day.exercises.map((e) => e.name).join(", ")}</p>

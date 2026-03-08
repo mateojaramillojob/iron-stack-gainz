@@ -1,1 +1,7 @@
 project_id = "sdyhgdqlclqiycmrxveb"
+
+[functions.generate-routine]
+verify_jwt = false
+
+[functions.ai-coach]
+verify_jwt = false
