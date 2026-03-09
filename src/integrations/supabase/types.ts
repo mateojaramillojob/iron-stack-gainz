@@ -84,6 +84,9 @@ export type Database = {
       }
       routine_day_exercises: {
         Row: {
+          color: string
+          default_reps: number
+          default_sets: number
           exercise_name: string
           id: string
           muscle_group: string
@@ -91,6 +94,9 @@ export type Database = {
           sort_order: number
         }
         Insert: {
+          color?: string
+          default_reps?: number
+          default_sets?: number
           exercise_name: string
           id?: string
           muscle_group?: string
@@ -98,6 +104,9 @@ export type Database = {
           sort_order?: number
         }
         Update: {
+          color?: string
+          default_reps?: number
+          default_sets?: number
           exercise_name?: string
           id?: string
           muscle_group?: string
