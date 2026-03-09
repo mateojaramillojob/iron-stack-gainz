@@ -4,7 +4,7 @@ import { ArrowLeft, Plus, Info, PenLine } from "lucide-react";
 import ExerciseGuideModal from "./ExerciseGuideModal";
 
 interface ExerciseSelectorProps {
-  onSelect: (exerciseName: string, muscleGroup: string) => void;
+  onSelect: (exerciseName: string, muscleGroup: string, defaultReps?: number, defaultSets?: number, color?: string) => void;
   onClose: () => void;
   customExercises?: Record<string, string[]>;
   onAddCustomExercise?: (muscleGroup: string, exerciseName: string) => void;
