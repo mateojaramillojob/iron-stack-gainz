@@ -121,15 +121,20 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, editSession }: W
 
             return (
               <button key={ex.id} onClick={() => setPopupExercise(ex.id)}
-                className={`w-full bg-card rounded-xl border transition-colors p-4 text-left active:scale-[0.98] ${isSaved ? "border-primary/40" : "border-border"}`}>
+                className={`w-full bg-card rounded-xl border transition-colors p-4 text-left active:scale-[0.98] ${isSaved ? "border-primary/40" : "border-border"}`}
+                style={{ borderLeftWidth: 4, borderLeftColor: ex.color || '#10b981' }}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     {isSaved && <Check size={18} className="text-primary" />}
                     <div>
                       <span className={`font-semibold text-base ${isSaved ? "text-primary" : "text-foreground"}`}>{ex.name}</span>
-                      {isSaved && (
+                      {isSaved ? (
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {w}kg × {r} reps × {s} sets = {vol.toLocaleString()} kg
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Default: {ex.defaultReps || 10} reps × {ex.defaultSets || 3} sets
                         </p>
                       )}
                     </div>
