@@ -46,11 +46,11 @@ const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose, customE
   const updateDayLabel = (dayId: string, label: string) =>
     setDays((prev) => prev.map((d) => (d.id === dayId ? { ...d, label } : d)));
 
-  const addExerciseToDay = (dayId: string, exerciseName: string, muscleGroup: string) => {
+  const addExerciseToDay = (dayId: string, exerciseName: string, muscleGroup: string, defaultReps?: number, defaultSets?: number, color?: string) => {
     setDays((prev) =>
       prev.map((d) =>
         d.id === dayId
-          ? { ...d, exercises: [...d.exercises, { id: crypto.randomUUID(), name: exerciseName, muscleGroup }] }
+          ? { ...d, exercises: [...d.exercises, { id: crypto.randomUUID(), name: exerciseName, muscleGroup, defaultReps: defaultReps || 10, defaultSets: defaultSets || 3, color: color || '#10b981' }] }
           : d
       )
     );
