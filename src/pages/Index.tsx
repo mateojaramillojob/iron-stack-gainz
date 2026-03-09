@@ -183,10 +183,7 @@ const Index = () => {
 
             {/* Start Workout */}
             <div className="mb-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Start Workout</h2>
-                <button onClick={() => setTab("dashboard")}
-                  className="text-xs font-semibold text-primary active:scale-95">Manage Routines →</button>
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Start Workout</h2>
               </div>
               {routines.length > 0 ? (
                 <div className="space-y-3">
