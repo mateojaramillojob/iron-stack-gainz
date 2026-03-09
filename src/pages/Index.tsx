@@ -30,6 +30,7 @@ const Index = () => {
   const [tab, setTab] = useState<Tab>("routines");
   const [activeSession, setActiveSession] = useState<{ routine: Routine; day: RoutineDay; editSession?: WorkoutSession } | null>(null);
   const [showAIBuilder, setShowAIBuilder] = useState(false);
+  const [managingRoutines, setManagingRoutines] = useState(false);
 
   useEffect(() => {
     fetchProfiles().then(setProfiles).catch(console.error).finally(() => setLoading(false));
