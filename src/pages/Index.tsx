@@ -183,8 +183,7 @@ const Index = () => {
 
             {/* Start Workout */}
             <div className="mb-4">
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Start Workout</h2>
-              </div>
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Start Workout</h2>
               {routines.length > 0 ? (
                 <div className="space-y-3">
                   {routines.map((routine) => (
