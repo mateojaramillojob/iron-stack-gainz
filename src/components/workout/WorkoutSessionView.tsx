@@ -25,7 +25,7 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, editSession }: W
             const existing = editSession.exercises.find((e) => e.exerciseId === ex.id);
             return [ex.id, existing
               ? { weight: String(existing.weight), reps: String(existing.reps), series: String(existing.series) }
-              : { weight: "", reps: String((ex as any).defaultReps || ""), series: String((ex as any).defaultSets || "") }];
+              : { weight: "", reps: String(ex.defaultReps || ""), series: String(ex.defaultSets || "") }];
           })
         )
       : Object.fromEntries(day.exercises.map((ex) => [ex.id, {
