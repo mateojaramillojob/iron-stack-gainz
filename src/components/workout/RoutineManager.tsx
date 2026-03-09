@@ -64,6 +64,15 @@ const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose, customE
       )
     );
 
+  const updateExerciseDefaults = (dayId: string, exId: string, updates: Partial<Exercise>) =>
+    setDays((prev) =>
+      prev.map((d) =>
+        d.id === dayId
+          ? { ...d, exercises: d.exercises.map((e) => (e.id === exId ? { ...e, ...updates } : e)) }
+          : d
+      )
+    );
+
   const saveRoutine = () => {
     if (!name.trim() || days.length === 0 || days.every((d) => d.exercises.length === 0)) return;
     if (editingId) {
