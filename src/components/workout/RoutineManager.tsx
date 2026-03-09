@@ -46,11 +46,11 @@ const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose, customE
   const updateDayLabel = (dayId: string, label: string) =>
     setDays((prev) => prev.map((d) => (d.id === dayId ? { ...d, label } : d)));
 
-  const addExerciseToDay = (dayId: string, exerciseName: string, muscleGroup: string) => {
+  const addExerciseToDay = (dayId: string, exerciseName: string, muscleGroup: string, defaultReps?: number, defaultSets?: number, color?: string) => {
     setDays((prev) =>
       prev.map((d) =>
         d.id === dayId
-          ? { ...d, exercises: [...d.exercises, { id: crypto.randomUUID(), name: exerciseName, muscleGroup }] }
+          ? { ...d, exercises: [...d.exercises, { id: crypto.randomUUID(), name: exerciseName, muscleGroup, defaultReps: defaultReps || 10, defaultSets: defaultSets || 3, color: color || '#10b981' }] }
           : d
       )
     );
@@ -61,6 +61,15 @@ const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose, customE
     setDays((prev) =>
       prev.map((d) =>
         d.id === dayId ? { ...d, exercises: d.exercises.filter((e) => e.id !== exId) } : d
+      )
+    );
+
+  const updateExerciseDefaults = (dayId: string, exId: string, updates: Partial<Exercise>) =>
+    setDays((prev) =>
+      prev.map((d) =>
+        d.id === dayId
+          ? { ...d, exercises: d.exercises.map((e) => (e.id === exId ? { ...e, ...updates } : e)) }
+          : d
       )
     );
 
@@ -147,10 +156,24 @@ const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose, customE
 
                       {/* Exercise cards */}
                       {day.exercises.map((ex) => (
-                        <div key={ex.id} className="flex items-center justify-between px-3 py-3 rounded-xl bg-background border border-border">
-                          <div>
+                        <div key={ex.id} className="flex items-center justify-between px-3 py-3 rounded-xl bg-background border border-border" style={{ borderLeftWidth: 4, borderLeftColor: ex.color || '#10b981' }}>
+                          <div className="flex-1">
                             <p className="text-sm font-semibold text-foreground">{ex.name}</p>
-                            <p className="text-xs text-muted-foreground">{(ex as any).muscleGroup || getMuscleGroupForExercise(ex.name)}</p>
+                            <p className="text-xs text-muted-foreground">{ex.muscleGroup || getMuscleGroupForExercise(ex.name)}</p>
+                            <div className="flex items-center gap-3 mt-1">
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-muted-foreground">Reps:</span>
+                                <input type="number" value={ex.defaultReps || 10} onChange={(e) => updateExerciseDefaults(day.id, ex.id, { defaultReps: parseInt(e.target.value) || 10 })} className="w-10 text-xs text-center font-semibold bg-muted rounded px-1 py-0.5 border-0 outline-none focus:ring-1 focus:ring-primary" />
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-muted-foreground">Sets:</span>
+                                <input type="number" value={ex.defaultSets || 3} onChange={(e) => updateExerciseDefaults(day.id, ex.id, { defaultSets: parseInt(e.target.value) || 3 })} className="w-10 text-xs text-center font-semibold bg-muted rounded px-1 py-0.5 border-0 outline-none focus:ring-1 focus:ring-primary" />
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-muted-foreground">Color:</span>
+                                <input type="color" value={ex.color || '#10b981'} onChange={(e) => updateExerciseDefaults(day.id, ex.id, { color: e.target.value })} className="w-5 h-5 rounded border-0 cursor-pointer" />
+                              </div>
+                            </div>
                           </div>
                           <button onClick={() => removeExercise(day.id, ex.id)} className="text-muted-foreground active:text-destructive p-1">
                             <Trash2 size={14} />
@@ -224,7 +247,9 @@ const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose, customE
                     <span className="text-xs font-semibold text-primary min-w-[42px]">{day.label}</span>
                     <div className="flex flex-wrap gap-1">
                       {day.exercises.map((ex) => (
-                        <span key={ex.id} className="text-xs px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">{ex.name}</span>
+                        <span key={ex.id} className="text-xs px-2 py-0.5 rounded-md font-medium text-muted-foreground" style={{ backgroundColor: `${ex.color || '#10b981'}20`, borderLeft: `2px solid ${ex.color || '#10b981'}` }}>
+                          {ex.name} <span className="opacity-60">{ex.defaultReps || 10}×{ex.defaultSets || 3}</span>
+                        </span>
                       ))}
                     </div>
                   </div>

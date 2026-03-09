@@ -73,7 +73,7 @@ export async function fetchRoutinesForProfile(profileId: string): Promise<Routin
         label: d.label,
         exercises: exRows
           .filter((e) => e.routine_day_id === d.id)
-          .map((e) => ({ id: e.id, name: e.exercise_name, muscleGroup: e.muscle_group })),
+          .map((e) => ({ id: e.id, name: e.exercise_name, muscleGroup: e.muscle_group, defaultReps: e.default_reps, defaultSets: e.default_sets, color: e.color })),
       }));
     return { id: r.id, name: r.name, days, createdAt: r.created_at };
   });
@@ -108,8 +108,11 @@ export async function upsertRoutine(profileId: string, routine: Routine) {
           id: ex.id,
           routine_day_id: day.id,
           exercise_name: ex.name,
-          muscle_group: (ex as any).muscleGroup || "Other",
+          muscle_group: ex.muscleGroup || "Other",
           sort_order: j,
+          default_reps: ex.defaultReps || 10,
+          default_sets: ex.defaultSets || 3,
+          color: ex.color || '#10b981',
         }))
       );
       if (eErr) throw eErr;

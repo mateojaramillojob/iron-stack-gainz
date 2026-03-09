@@ -25,13 +25,13 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, editSession }: W
             const existing = editSession.exercises.find((e) => e.exerciseId === ex.id);
             return [ex.id, existing
               ? { weight: String(existing.weight), reps: String(existing.reps), series: String(existing.series) }
-              : { weight: "", reps: String((ex as any).defaultReps || ""), series: String((ex as any).defaultSets || "") }];
+              : { weight: "", reps: String(ex.defaultReps || ""), series: String(ex.defaultSets || "") }];
           })
         )
       : Object.fromEntries(day.exercises.map((ex) => [ex.id, {
           weight: "",
-          reps: String((ex as any).defaultReps || ""),
-          series: String((ex as any).defaultSets || ""),
+          reps: String(ex.defaultReps || ""),
+          series: String(ex.defaultSets || ""),
         }]))
   );
   const [savedExercises, setSavedExercises] = useState<Set<string>>(
@@ -121,15 +121,20 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, editSession }: W
 
             return (
               <button key={ex.id} onClick={() => setPopupExercise(ex.id)}
-                className={`w-full bg-card rounded-xl border transition-colors p-4 text-left active:scale-[0.98] ${isSaved ? "border-primary/40" : "border-border"}`}>
+                className={`w-full bg-card rounded-xl border transition-colors p-4 text-left active:scale-[0.98] ${isSaved ? "border-primary/40" : "border-border"}`}
+                style={{ borderLeftWidth: 4, borderLeftColor: ex.color || '#10b981' }}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     {isSaved && <Check size={18} className="text-primary" />}
                     <div>
                       <span className={`font-semibold text-base ${isSaved ? "text-primary" : "text-foreground"}`}>{ex.name}</span>
-                      {isSaved && (
+                      {isSaved ? (
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {w}kg × {r} reps × {s} sets = {vol.toLocaleString()} kg
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Default: {ex.defaultReps || 10} reps × {ex.defaultSets || 3} sets
                         </p>
                       )}
                     </div>
@@ -159,8 +164,8 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, editSession }: W
           initialWeight={logs[popupEx.id].weight}
           initialReps={logs[popupEx.id].reps}
           initialSeries={logs[popupEx.id].series}
-          defaultReps={(popupEx as any).defaultReps}
-          defaultSets={(popupEx as any).defaultSets}
+          defaultReps={popupEx.defaultReps}
+          defaultSets={popupEx.defaultSets}
           onSave={(w, r, s) => saveExerciseFromPopup(popupEx.id, w, r, s)}
           onBack={() => setPopupExercise(null)}
         />
