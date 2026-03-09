@@ -30,8 +30,8 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, editSession }: W
         )
       : Object.fromEntries(day.exercises.map((ex) => [ex.id, {
           weight: "",
-          reps: String((ex as any).defaultReps || ""),
-          series: String((ex as any).defaultSets || ""),
+          reps: String(ex.defaultReps || ""),
+          series: String(ex.defaultSets || ""),
         }]))
   );
   const [savedExercises, setSavedExercises] = useState<Set<string>>(
