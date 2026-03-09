@@ -73,7 +73,7 @@ export async function fetchRoutinesForProfile(profileId: string): Promise<Routin
         label: d.label,
         exercises: exRows
           .filter((e) => e.routine_day_id === d.id)
-          .map((e) => ({ id: e.id, name: e.exercise_name, muscleGroup: e.muscle_group })),
+          .map((e) => ({ id: e.id, name: e.exercise_name, muscleGroup: e.muscle_group, defaultReps: e.default_reps, defaultSets: e.default_sets, color: e.color })),
       }));
     return { id: r.id, name: r.name, days, createdAt: r.created_at };
   });
