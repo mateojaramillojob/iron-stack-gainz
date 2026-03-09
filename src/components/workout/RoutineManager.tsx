@@ -247,7 +247,9 @@ const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose, customE
                     <span className="text-xs font-semibold text-primary min-w-[42px]">{day.label}</span>
                     <div className="flex flex-wrap gap-1">
                       {day.exercises.map((ex) => (
-                        <span key={ex.id} className="text-xs px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">{ex.name}</span>
+                        <span key={ex.id} className="text-xs px-2 py-0.5 rounded-md font-medium text-muted-foreground" style={{ backgroundColor: `${ex.color || '#10b981'}20`, borderLeft: `2px solid ${ex.color || '#10b981'}` }}>
+                          {ex.name} <span className="opacity-60">{ex.defaultReps || 10}×{ex.defaultSets || 3}</span>
+                        </span>
                       ))}
                     </div>
                   </div>
