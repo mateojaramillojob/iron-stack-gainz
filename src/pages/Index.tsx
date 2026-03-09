@@ -213,8 +213,12 @@ const Index = () => {
               )}
             </div>
 
-            <RoutineManager routines={routines} onSave={saveRoutine} onUpdate={updateRoutine} onDelete={deleteRoutine}
-              onClose={() => {}} customExercises={customExercises} onAddCustomExercise={handleAddCustomExercise} inline />
+            {/* Manage routines button */}
+            <button onClick={() => setManagingRoutines(true)}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-secondary text-secondary-foreground font-semibold text-sm active:scale-[0.98] transition-transform">
+              <ListChecks size={16} />
+              Manage Routines
+            </button>
           </div>
         )}
 
