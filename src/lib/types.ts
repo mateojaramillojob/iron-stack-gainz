@@ -40,4 +40,9 @@ export interface Profile {
   name: string;
   emoji: string;
   createdAt: string;
+  age?: number | null;
+  weightKg?: number | null;
+  heightCm?: number | null;
+  bodyFatPct?: number | null;
+  goal?: string | null;
 }

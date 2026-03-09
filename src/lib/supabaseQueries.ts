@@ -6,11 +6,16 @@ import type { Profile, Routine, RoutineDay, Exercise, WorkoutSession, ExerciseLo
 export async function fetchProfiles(): Promise<Profile[]> {
   const { data, error } = await supabase.from("profiles").select("*").order("created_at");
   if (error) throw error;
-  return (data || []).map((p) => ({
+  return (data || []).map((p: any) => ({
     id: p.id,
     name: p.name,
     emoji: p.emoji,
     createdAt: p.created_at,
+    age: p.age ?? null,
+    weightKg: p.weight_kg ?? null,
+    heightCm: p.height_cm ?? null,
+    bodyFatPct: p.body_fat_pct ?? null,
+    goal: p.goal ?? null,
   }));
 }
 

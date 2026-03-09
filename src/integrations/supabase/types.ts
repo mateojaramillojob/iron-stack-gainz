@@ -48,22 +48,37 @@ export type Database = {
       }
       profiles: {
         Row: {
+          age: number | null
+          body_fat_pct: number | null
           created_at: string
           emoji: string
+          goal: string | null
+          height_cm: number | null
           id: string
           name: string
+          weight_kg: number | null
         }
         Insert: {
+          age?: number | null
+          body_fat_pct?: number | null
           created_at?: string
           emoji?: string
+          goal?: string | null
+          height_cm?: number | null
           id?: string
           name: string
+          weight_kg?: number | null
         }
         Update: {
+          age?: number | null
+          body_fat_pct?: number | null
           created_at?: string
           emoji?: string
+          goal?: string | null
+          height_cm?: number | null
           id?: string
           name?: string
+          weight_kg?: number | null
         }
         Relationships: []
       }
