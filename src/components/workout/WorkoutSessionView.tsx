@@ -164,8 +164,8 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, editSession }: W
           initialWeight={logs[popupEx.id].weight}
           initialReps={logs[popupEx.id].reps}
           initialSeries={logs[popupEx.id].series}
-          defaultReps={(popupEx as any).defaultReps}
-          defaultSets={(popupEx as any).defaultSets}
+          defaultReps={popupEx.defaultReps}
+          defaultSets={popupEx.defaultSets}
           onSave={(w, r, s) => saveExerciseFromPopup(popupEx.id, w, r, s)}
           onBack={() => setPopupExercise(null)}
         />
