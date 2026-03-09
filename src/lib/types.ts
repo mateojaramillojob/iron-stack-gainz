@@ -1,6 +1,10 @@
 export interface Exercise {
   id: string;
   name: string;
+  muscleGroup?: string;
+  defaultReps?: number;
+  defaultSets?: number;
+  color?: string;
 }
 
 export interface RoutineDay {

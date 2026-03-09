@@ -108,8 +108,11 @@ export async function upsertRoutine(profileId: string, routine: Routine) {
           id: ex.id,
           routine_day_id: day.id,
           exercise_name: ex.name,
-          muscle_group: (ex as any).muscleGroup || "Other",
+          muscle_group: ex.muscleGroup || "Other",
           sort_order: j,
+          default_reps: ex.defaultReps || 10,
+          default_sets: ex.defaultSets || 3,
+          color: ex.color || '#10b981',
         }))
       );
       if (eErr) throw eErr;
