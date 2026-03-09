@@ -141,6 +141,11 @@ const Index = () => {
     );
   }
 
+  if (managingRoutines) {
+    return <RoutineManager routines={routines} onSave={saveRoutine} onUpdate={updateRoutine} onDelete={deleteRoutine}
+      onClose={() => setManagingRoutines(false)} customExercises={customExercises} onAddCustomExercise={handleAddCustomExercise} />;
+  }
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-md mx-auto p-4">
