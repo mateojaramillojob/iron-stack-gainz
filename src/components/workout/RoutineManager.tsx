@@ -3,6 +3,17 @@ import { Routine, RoutineDay, Exercise } from "@/lib/types";
 import { Plus, Trash2, X, Dumbbell, ChevronDown, ChevronUp, Pencil } from "lucide-react";
 import ExerciseSelector from "./ExerciseSelector";
 import { getMuscleGroupForExercise } from "@/lib/exerciseLibrary";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface RoutineManagerProps {
   routines: Routine[];
@@ -154,7 +165,6 @@ const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose, customE
                         placeholder="Day name..."
                       />
 
-                      {/* Exercise cards */}
                       {day.exercises.map((ex) => (
                         <div key={ex.id} className="flex items-center justify-between px-3 py-3 rounded-xl bg-background border border-border" style={{ borderLeftWidth: 4, borderLeftColor: ex.color || '#10b981' }}>
                           <div className="flex-1">
@@ -181,7 +191,6 @@ const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose, customE
                         </div>
                       ))}
 
-                      {/* Exercise Selector or Add button */}
                       {addingExerciseDayId === day.id ? (
                         <ExerciseSelector
                           onSelect={(name, muscleGroup) => addExerciseToDay(day.id, name, muscleGroup)}
@@ -235,9 +244,27 @@ const RoutineManager = ({ routines, onSave, onUpdate, onDelete, onClose, customE
                   <button onClick={() => startEdit(routine)} className="text-muted-foreground active:text-primary p-1">
                     <Pencil size={16} />
                   </button>
-                  <button onClick={() => onDelete(routine.id)} className="text-muted-foreground active:text-destructive p-1">
-                    <Trash2 size={16} />
-                  </button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button className="text-muted-foreground active:text-destructive p-1">
+                        <Trash2 size={16} />
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete "{routine.name}"?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently remove the routine and all its days and exercises. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => onDelete(routine.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mb-2">{routine.days.length} days</p>

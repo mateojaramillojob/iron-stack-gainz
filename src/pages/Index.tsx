@@ -150,6 +150,7 @@ const Index = () => {
         day={activeSession.day}
         onFinish={finishSession}
         onCancel={() => setActiveSession(null)}
+        onAutoSave={autoSaveSession}
         editSession={activeSession.editSession}
       />
     );
