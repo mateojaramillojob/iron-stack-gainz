@@ -3,7 +3,7 @@ import { Profile, Routine, RoutineDay, WorkoutSession } from "@/lib/types";
 import {
   fetchProfiles, insertProfile, deleteProfileById,
   fetchRoutinesForProfile, upsertRoutine, deleteRoutineById,
-  fetchSessionsForProfile, upsertSession,
+  fetchSessionsForProfile, upsertSession, deleteSessionById,
   fetchCustomExercises, insertCustomExercise,
 } from "@/lib/supabaseQueries";
 import ProfileSelector from "@/components/workout/ProfileSelector";
@@ -100,6 +100,12 @@ const Index = () => {
     } catch (e) {
       console.error("Auto-save failed:", e);
     }
+  };
+
+  const deleteSession = async (sessionId: string) => {
+    await deleteSessionById(sessionId);
+    setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+    toast.success("Session deleted");
   };
 
   const editSession = (session: WorkoutSession) => {
@@ -243,7 +249,7 @@ const Index = () => {
         {tab === "dashboard" && (
           <div className="space-y-4">
             <AnalyticsDashboard sessions={sessions} />
-            <Dashboard sessions={sessions} onEditSession={editSession} />
+            <Dashboard sessions={sessions} onEditSession={editSession} onDeleteSession={deleteSession} />
           </div>
         )}
 

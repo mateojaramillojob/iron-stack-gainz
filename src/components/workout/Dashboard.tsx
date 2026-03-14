@@ -3,17 +3,22 @@ import { WorkoutSession } from "@/lib/types";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { format, subDays, parseISO, startOfWeek, endOfWeek, eachWeekOfInterval } from "date-fns";
 import { calculateVolume } from "@/lib/calculations";
-import { Pencil, TrendingUp } from "lucide-react";
+import { Pencil, TrendingUp, Trash2 } from "lucide-react";
 import AICoach from "./AICoach";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type TimeRange = "weekly" | "monthly" | "quarterly";
 
 interface DashboardProps {
   sessions: WorkoutSession[];
   onEditSession?: (session: WorkoutSession) => void;
+  onDeleteSession?: (sessionId: string) => void;
 }
 
-const Dashboard = ({ sessions, onEditSession }: DashboardProps) => {
+const Dashboard = ({ sessions, onEditSession, onDeleteSession }: DashboardProps) => {
   const [selectedExercise, setSelectedExercise] = useState<string>("");
   const [timeRange, setTimeRange] = useState<TimeRange>("weekly");
 
@@ -232,19 +237,46 @@ const Dashboard = ({ sessions, onEditSession }: DashboardProps) => {
       </div>
 
       {/* Recent Sessions */}
-      {recentSessions.length > 0 && onEditSession && (
+      {recentSessions.length > 0 && (
         <div className="bg-card rounded-xl p-4 border border-border">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Recent Sessions</h3>
           <div className="space-y-2">
             {recentSessions.map((session) => (
-              <button key={session.id} onClick={() => onEditSession(session)}
-                className="w-full flex items-center justify-between p-3 rounded-lg bg-muted active:scale-[0.98] transition-transform">
-                <div className="text-left">
+              <div key={session.id} className="flex items-center gap-2 p-3 rounded-lg bg-muted">
+                <button onClick={() => onEditSession?.(session)}
+                  className="flex-1 text-left active:scale-[0.98] transition-transform">
                   <p className="text-sm font-semibold text-foreground">{session.routineName} — {session.dayLabel}</p>
                   <p className="text-xs text-muted-foreground">{format(parseISO(session.date), "MMM d, yyyy")} · {session.totalVolume.toLocaleString()} kg</p>
-                </div>
-                <Pencil size={14} className="text-muted-foreground" />
-              </button>
+                </button>
+                {onEditSession && (
+                  <button onClick={() => onEditSession(session)} className="p-1.5 text-muted-foreground active:text-primary">
+                    <Pencil size={14} />
+                  </button>
+                )}
+                {onDeleteSession && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button className="p-1.5 text-muted-foreground active:text-destructive">
+                        <Trash2 size={14} />
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this session?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently remove the "{session.routineName} — {session.dayLabel}" session from {format(parseISO(session.date), "MMM d, yyyy")}. This cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => onDeleteSession(session.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
             ))}
           </div>
         </div>
