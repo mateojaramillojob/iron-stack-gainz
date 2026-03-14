@@ -3,7 +3,7 @@ import { Profile, Routine, RoutineDay, WorkoutSession } from "@/lib/types";
 import {
   fetchProfiles, insertProfile, deleteProfileById,
   fetchRoutinesForProfile, upsertRoutine, deleteRoutineById,
-  fetchSessionsForProfile, upsertSession,
+  fetchSessionsForProfile, upsertSession, deleteSessionById,
   fetchCustomExercises, insertCustomExercise,
 } from "@/lib/supabaseQueries";
 import ProfileSelector from "@/components/workout/ProfileSelector";
