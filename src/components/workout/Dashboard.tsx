@@ -3,14 +3,19 @@ import { WorkoutSession } from "@/lib/types";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { format, subDays, parseISO, startOfWeek, endOfWeek, eachWeekOfInterval } from "date-fns";
 import { calculateVolume } from "@/lib/calculations";
-import { Pencil, TrendingUp } from "lucide-react";
+import { Pencil, TrendingUp, Trash2 } from "lucide-react";
 import AICoach from "./AICoach";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type TimeRange = "weekly" | "monthly" | "quarterly";
 
 interface DashboardProps {
   sessions: WorkoutSession[];
   onEditSession?: (session: WorkoutSession) => void;
+  onDeleteSession?: (sessionId: string) => void;
 }
 
 const Dashboard = ({ sessions, onEditSession }: DashboardProps) => {
