@@ -18,7 +18,7 @@ interface DashboardProps {
   onDeleteSession?: (sessionId: string) => void;
 }
 
-const Dashboard = ({ sessions, onEditSession }: DashboardProps) => {
+const Dashboard = ({ sessions, onEditSession, onDeleteSession }: DashboardProps) => {
   const [selectedExercise, setSelectedExercise] = useState<string>("");
   const [timeRange, setTimeRange] = useState<TimeRange>("weekly");
 
