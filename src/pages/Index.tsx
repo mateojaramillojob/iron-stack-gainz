@@ -88,6 +88,20 @@ const Index = () => {
     setTab("dashboard");
   };
 
+  const autoSaveSession = async (session: WorkoutSession) => {
+    if (!activeProfileId) return;
+    try {
+      await upsertSession(activeProfileId, session);
+      setSessions((prev) => {
+        const exists = prev.find((s) => s.id === session.id);
+        if (exists) return prev.map((s) => (s.id === session.id ? session : s));
+        return [session, ...prev];
+      });
+    } catch (e) {
+      console.error("Auto-save failed:", e);
+    }
+  };
+
   const editSession = (session: WorkoutSession) => {
     const routine = routines.find((r) => r.id === session.routineId);
     const day = routine?.days.find((d) => d.id === session.dayId);
