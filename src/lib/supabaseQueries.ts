@@ -188,6 +188,12 @@ export async function insertCustomExercise(profileId: string, muscleGroup: strin
   if (error) throw error;
 }
 
+export async function deleteSessionById(sessionId: string) {
+  await supabase.from("workout_session_exercises").delete().eq("session_id", sessionId);
+  const { error } = await supabase.from("workout_sessions").delete().eq("id", sessionId);
+  if (error) throw error;
+}
+
 // ── Sessions ──
 
 export async function upsertSession(profileId: string, session: WorkoutSession) {

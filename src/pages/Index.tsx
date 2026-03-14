@@ -249,7 +249,7 @@ const Index = () => {
         {tab === "dashboard" && (
           <div className="space-y-4">
             <AnalyticsDashboard sessions={sessions} />
-            <Dashboard sessions={sessions} onEditSession={editSession} />
+            <Dashboard sessions={sessions} onEditSession={editSession} onDeleteSession={deleteSession} />
           </div>
         )}
 
