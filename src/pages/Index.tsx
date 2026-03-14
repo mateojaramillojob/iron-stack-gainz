@@ -102,6 +102,12 @@ const Index = () => {
     }
   };
 
+  const deleteSession = async (sessionId: string) => {
+    await deleteSessionById(sessionId);
+    setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+    toast.success("Session deleted");
+  };
+
   const editSession = (session: WorkoutSession) => {
     const routine = routines.find((r) => r.id === session.routineId);
     const day = routine?.days.find((d) => d.id === session.dayId);
