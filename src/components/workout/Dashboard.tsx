@@ -3,8 +3,9 @@ import { WorkoutSession } from "@/lib/types";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { format, subDays, parseISO, startOfWeek, endOfWeek, eachWeekOfInterval } from "date-fns";
 import { calculateVolume } from "@/lib/calculations";
-import { Pencil, TrendingUp, Trash2 } from "lucide-react";
+import { Pencil, TrendingUp, Trash2, History } from "lucide-react";
 import AICoach from "./AICoach";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
