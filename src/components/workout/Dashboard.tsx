@@ -237,50 +237,60 @@ const Dashboard = ({ sessions, onEditSession, onDeleteSession }: DashboardProps)
         )}
       </div>
 
-      {/* Recent Sessions */}
-      {recentSessions.length > 0 && (
-        <div className="bg-card rounded-xl p-4 border border-border">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Recent Sessions</h3>
-          <div className="space-y-2">
-            {recentSessions.map((session) => (
-              <div key={session.id} className="flex items-center gap-2 p-3 rounded-lg bg-muted">
-                <button onClick={() => onEditSession?.(session)}
-                  className="flex-1 text-left active:scale-[0.98] transition-transform">
-                  <p className="text-sm font-semibold text-foreground">{session.routineName} — {session.dayLabel}</p>
-                  <p className="text-xs text-muted-foreground">{format(parseISO(session.date), "MMM d, yyyy")} · {session.totalVolume.toLocaleString()} kg</p>
-                </button>
-                {onEditSession && (
-                  <button onClick={() => onEditSession(session)} className="p-1.5 text-muted-foreground active:text-primary">
-                    <Pencil size={14} />
+      {/* Past Sessions Button */}
+      {sessions.length > 0 && (
+        <Sheet>
+          <SheetTrigger asChild>
+            <button className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-card border border-border text-sm font-semibold text-foreground active:scale-[0.98] transition-transform">
+              <History size={16} className="text-primary" />
+              Past Sessions ({sessions.length})
+            </button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="max-h-[70vh] overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Past Sessions</SheetTitle>
+            </SheetHeader>
+            <div className="space-y-2 mt-4">
+              {allSessions.map((session) => (
+                <div key={session.id} className="flex items-center gap-2 p-3 rounded-lg bg-muted">
+                  <button onClick={() => onEditSession?.(session)}
+                    className="flex-1 text-left active:scale-[0.98] transition-transform">
+                    <p className="text-sm font-semibold text-foreground">{session.routineName} — {session.dayLabel}</p>
+                    <p className="text-xs text-muted-foreground">{format(parseISO(session.date), "MMM d, yyyy")} · {session.totalVolume.toLocaleString()} kg</p>
                   </button>
-                )}
-                {onDeleteSession && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <button className="p-1.5 text-muted-foreground active:text-destructive">
-                        <Trash2 size={14} />
-                      </button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete this session?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will permanently remove the "{session.routineName} — {session.dayLabel}" session from {format(parseISO(session.date), "MMM d, yyyy")}. This cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => onDeleteSession(session.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+                  {onEditSession && (
+                    <button onClick={() => onEditSession(session)} className="p-1.5 text-muted-foreground active:text-primary">
+                      <Pencil size={14} />
+                    </button>
+                  )}
+                  {onDeleteSession && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button className="p-1.5 text-muted-foreground active:text-destructive">
+                          <Trash2 size={14} />
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete this session?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently remove the "{session.routineName} — {session.dayLabel}" session from {format(parseISO(session.date), "MMM d, yyyy")}. This cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => onDeleteSession(session.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
+              ))}
+            </div>
+          </SheetContent>
+        </Sheet>
       )}
     </div>
   );
