@@ -117,8 +117,8 @@ const Dashboard = ({ sessions, onEditSession, onDeleteSession }: DashboardProps)
     </div>
   );
 
-  const recentSessions = useMemo(() => {
-    return [...sessions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10);
+  const allSessions = useMemo(() => {
+    return [...sessions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [sessions]);
 
   return (
