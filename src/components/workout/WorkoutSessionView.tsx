@@ -9,6 +9,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { motion, AnimatePresence } from "framer-motion";
 import ExerciseGuideModal from "./ExerciseGuideModal";
 
+interface PreviousExerciseData {
+  [exerciseId: string]: { weight: number; reps: number; series: number };
+}
+
 interface WorkoutSessionViewProps {
   routine: Routine;
   day: RoutineDay;
@@ -16,6 +20,7 @@ interface WorkoutSessionViewProps {
   onCancel: () => void;
   onAutoSave?: (session: WorkoutSession) => void;
   editSession?: WorkoutSession;
+  previousData?: PreviousExerciseData;
 }
 
 const WEIGHT_OPTIONS = Array.from({ length: 80 }, (_, i) => (i + 1) * 2.5);
