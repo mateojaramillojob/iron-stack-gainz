@@ -172,6 +172,23 @@ const Index = () => {
     return <AIRoutineBuilder onGenerated={handleAIRoutineGenerated} onClose={() => setShowAIBuilder(false)} />;
   }
 
+  // Compute previous exercise data for the active session's day
+  const previousData = useMemo(() => {
+    if (!activeSession) return {};
+    const dayId = activeSession.day.id;
+    // Find last completed session for this day (excluding the edit session)
+    const pastForDay = sessions
+      .filter((s) => s.dayId === dayId && s.id !== activeSession.editSession?.id)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const last = pastForDay[0];
+    if (!last) return {};
+    const map: Record<string, { weight: number; reps: number; series: number }> = {};
+    last.exercises.forEach((e) => {
+      map[e.exerciseId] = { weight: e.weight, reps: e.reps, series: e.series };
+    });
+    return map;
+  }, [activeSession, sessions]);
+
   if (activeSession) {
     return (
       <WorkoutSessionView
@@ -181,6 +198,7 @@ const Index = () => {
         onCancel={() => setActiveSession(null)}
         onAutoSave={autoSaveSession}
         editSession={activeSession.editSession}
+        previousData={previousData}
       />
     );
   }
