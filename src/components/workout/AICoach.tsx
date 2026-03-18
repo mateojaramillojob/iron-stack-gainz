@@ -15,7 +15,7 @@ interface CoachAnalysis {
   motivation: string;
 }
 
-const AICoach = ({ sessions }: AICoachProps) => {
+const AICoach = ({ sessions, profileName }: AICoachProps) => {
   const [analysis, setAnalysis] = useState<CoachAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
 
