@@ -155,7 +155,7 @@ const Dashboard = ({ sessions, onEditSession, onDeleteSession, profileName }: Da
       )}
 
       {/* AI Coach */}
-      <AICoach sessions={sessions} />
+      <AICoach sessions={sessions} profileName={profileName} />
 
       {/* Volume Overview */}
       <div className="bg-card rounded-xl p-4 border border-border">
