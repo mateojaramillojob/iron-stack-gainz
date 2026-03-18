@@ -63,7 +63,7 @@ const InlineScrollSelector = ({ values, selected, onChange, label }: {
   );
 };
 
-const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, editSession }: WorkoutSessionViewProps) => {
+const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, editSession, previousData }: WorkoutSessionViewProps) => {
   const [sessionDate, setSessionDate] = useState<Date>(editSession ? new Date(editSession.date) : new Date());
   const [logs, setLogs] = useState<Record<string, { weight: string; reps: string; series: string }>>(
     editSession
