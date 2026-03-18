@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 interface AICoachProps {
   sessions: WorkoutSession[];
+  profileName?: string;
 }
 
 interface CoachAnalysis {
