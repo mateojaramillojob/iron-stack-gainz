@@ -190,6 +190,37 @@ const Index = () => {
         {/* ── Routines Tab ── */}
         {tab === "routines" && (
           <div>
+            {/* Up Next Card */}
+            {(() => {
+              const upNext = getUpNextDay();
+              if (upNext) {
+                return (
+                  <div className="mb-5">
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Up Next</h2>
+                    <div className="bg-card rounded-2xl border-2 border-primary/40 p-5 shadow-lg relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full -translate-y-8 translate-x-8" />
+                      <div className="relative">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Dumbbell size={18} className="text-primary" />
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{upNext.routine.name}</span>
+                        </div>
+                        <h3 className="text-xl font-black text-foreground mb-2">{upNext.day.label}</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          {upNext.day.exercises.map((e) => e.name).join(" · ")}
+                        </p>
+                        <button onClick={() => setActiveSession({ routine: upNext.routine, day: upNext.day })}
+                          className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold text-base active:scale-[0.98] transition-transform shadow-lg">
+                          <Play size={18} className="inline mr-2 -mt-0.5" />
+                          Start Session
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             {/* AI Routine Builder CTA */}
             <button onClick={() => setShowAIBuilder(true)}
               className="w-full flex items-center gap-3 p-4 mb-4 bg-primary/10 rounded-xl border border-primary/20 active:scale-[0.98] transition-transform">
@@ -202,9 +233,9 @@ const Index = () => {
               </div>
             </button>
 
-            {/* Start Workout */}
+            {/* All Routines */}
             <div className="mb-4">
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Start Workout</h2>
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">All Workouts</h2>
               {routines.length > 0 ? (
                 <div className="space-y-3">
                   {routines.map((routine) => (
