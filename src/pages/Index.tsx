@@ -156,6 +156,22 @@ const Index = () => {
     setProfiles((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
   };
 
+  // Compute previous exercise data for the active session's day
+  const previousData2 = useMemo(() => {
+    if (!activeSession) return {};
+    const dayId = activeSession.day.id;
+    const pastForDay = sessions
+      .filter((s) => s.dayId === dayId && s.id !== activeSession.editSession?.id)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const last = pastForDay[0];
+    if (!last) return {};
+    const map: Record<string, { weight: number; reps: number; series: number }> = {};
+    last.exercises.forEach((e) => {
+      map[e.exerciseId] = { weight: e.weight, reps: e.reps, series: e.series };
+    });
+    return map;
+  }, [activeSession, sessions]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
