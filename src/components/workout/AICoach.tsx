@@ -27,7 +27,7 @@ const AICoach = ({ sessions, profileName }: AICoachProps) => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("ai-coach", {
-        body: { sessions },
+        body: { sessions, profileName },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
