@@ -225,6 +225,20 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
                     {activeEx.muscleGroup} · Default: {activeEx.defaultReps || 10} reps × {activeEx.defaultSets || 3} sets
                   </p>
 
+                  {/* Previous data reference */}
+                  {previousData?.[activeEx.id] && (
+                    <div className="flex items-center gap-3 mb-3 px-3 py-2 bg-muted/60 rounded-lg border border-border/50">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Previous</span>
+                      <div className="flex gap-3 text-xs text-muted-foreground">
+                        <span>{previousData[activeEx.id].weight} kg</span>
+                        <span>×</span>
+                        <span>{previousData[activeEx.id].reps} reps</span>
+                        <span>×</span>
+                        <span>{previousData[activeEx.id].series} sets</span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Scroll selectors */}
                   <div className="flex gap-2 mb-4">
                     <InlineScrollSelector
