@@ -9,6 +9,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { motion, AnimatePresence } from "framer-motion";
 import ExerciseGuideModal from "./ExerciseGuideModal";
 
+interface PreviousExerciseData {
+  [exerciseId: string]: { weight: number; reps: number; series: number };
+}
+
 interface WorkoutSessionViewProps {
   routine: Routine;
   day: RoutineDay;
@@ -16,6 +20,7 @@ interface WorkoutSessionViewProps {
   onCancel: () => void;
   onAutoSave?: (session: WorkoutSession) => void;
   editSession?: WorkoutSession;
+  previousData?: PreviousExerciseData;
 }
 
 const WEIGHT_OPTIONS = Array.from({ length: 80 }, (_, i) => (i + 1) * 2.5);
@@ -58,7 +63,7 @@ const InlineScrollSelector = ({ values, selected, onChange, label }: {
   );
 };
 
-const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, editSession }: WorkoutSessionViewProps) => {
+const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, editSession, previousData }: WorkoutSessionViewProps) => {
   const [sessionDate, setSessionDate] = useState<Date>(editSession ? new Date(editSession.date) : new Date());
   const [logs, setLogs] = useState<Record<string, { weight: string; reps: string; series: string }>>(
     editSession
@@ -219,6 +224,20 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
                   <p className="text-xs text-muted-foreground mb-4">
                     {activeEx.muscleGroup} · Default: {activeEx.defaultReps || 10} reps × {activeEx.defaultSets || 3} sets
                   </p>
+
+                  {/* Previous data reference */}
+                  {previousData?.[activeEx.id] && (
+                    <div className="flex items-center gap-3 mb-3 px-3 py-2 bg-muted/60 rounded-lg border border-border/50">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Previous</span>
+                      <div className="flex gap-3 text-xs text-muted-foreground">
+                        <span>{previousData[activeEx.id].weight} kg</span>
+                        <span>×</span>
+                        <span>{previousData[activeEx.id].reps} reps</span>
+                        <span>×</span>
+                        <span>{previousData[activeEx.id].series} sets</span>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Scroll selectors */}
                   <div className="flex gap-2 mb-4">

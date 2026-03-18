@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Profile, Routine, RoutineDay, WorkoutSession } from "@/lib/types";
 import {
   fetchProfiles, insertProfile, deleteProfileById,
@@ -47,6 +47,29 @@ const Index = () => {
   }, [activeProfileId]);
 
   const activeProfile = profiles.find((p) => p.id === activeProfileId) || null;
+
+  // Determine the "Up Next" workout day
+  const getUpNextDay = useCallback(() => {
+    if (!routines.length) return null;
+    // Find the most recent session
+    const sorted = [...sessions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const lastSession = sorted[0];
+    if (!lastSession) {
+      // No sessions yet — suggest the first day of the first routine
+      const r = routines[0];
+      return r.days.length ? { routine: r, day: r.days[0] } : null;
+    }
+    // Find the routine of the last session
+    const routine = routines.find((r) => r.id === lastSession.routineId);
+    if (!routine) {
+      const r = routines[0];
+      return r.days.length ? { routine: r, day: r.days[0] } : null;
+    }
+    // Find the next day in that routine
+    const lastDayIdx = routine.days.findIndex((d) => d.id === lastSession.dayId);
+    const nextDayIdx = (lastDayIdx + 1) % routine.days.length;
+    return { routine, day: routine.days[nextDayIdx] };
+  }, [routines, sessions]);
 
   const saveProfile = async (profile: Profile) => {
     await insertProfile(profile);
@@ -133,6 +156,22 @@ const Index = () => {
     setProfiles((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
   };
 
+  // Compute previous exercise data for the active session's day
+  const previousData2 = useMemo(() => {
+    if (!activeSession) return {};
+    const dayId = activeSession.day.id;
+    const pastForDay = sessions
+      .filter((s) => s.dayId === dayId && s.id !== activeSession.editSession?.id)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const last = pastForDay[0];
+    if (!last) return {};
+    const map: Record<string, { weight: number; reps: number; series: number }> = {};
+    last.exercises.forEach((e) => {
+      map[e.exerciseId] = { weight: e.weight, reps: e.reps, series: e.series };
+    });
+    return map;
+  }, [activeSession, sessions]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -158,6 +197,7 @@ const Index = () => {
         onCancel={() => setActiveSession(null)}
         onAutoSave={autoSaveSession}
         editSession={activeSession.editSession}
+        previousData={previousData2}
       />
     );
   }
@@ -190,6 +230,37 @@ const Index = () => {
         {/* ── Routines Tab ── */}
         {tab === "routines" && (
           <div>
+            {/* Up Next Card */}
+            {(() => {
+              const upNext = getUpNextDay();
+              if (upNext) {
+                return (
+                  <div className="mb-5">
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Up Next</h2>
+                    <div className="bg-card rounded-2xl border-2 border-primary/40 p-5 shadow-lg relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full -translate-y-8 translate-x-8" />
+                      <div className="relative">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Dumbbell size={18} className="text-primary" />
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{upNext.routine.name}</span>
+                        </div>
+                        <h3 className="text-xl font-black text-foreground mb-2">{upNext.day.label}</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          {upNext.day.exercises.map((e) => e.name).join(" · ")}
+                        </p>
+                        <button onClick={() => setActiveSession({ routine: upNext.routine, day: upNext.day })}
+                          className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold text-base active:scale-[0.98] transition-transform shadow-lg">
+                          <Play size={18} className="inline mr-2 -mt-0.5" />
+                          Start Session
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             {/* AI Routine Builder CTA */}
             <button onClick={() => setShowAIBuilder(true)}
               className="w-full flex items-center gap-3 p-4 mb-4 bg-primary/10 rounded-xl border border-primary/20 active:scale-[0.98] transition-transform">
@@ -202,9 +273,9 @@ const Index = () => {
               </div>
             </button>
 
-            {/* Start Workout */}
+            {/* All Routines */}
             <div className="mb-4">
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Start Workout</h2>
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">All Workouts</h2>
               {routines.length > 0 ? (
                 <div className="space-y-3">
                   {routines.map((routine) => (
@@ -249,7 +320,7 @@ const Index = () => {
         {tab === "dashboard" && (
           <div className="space-y-4">
             <AnalyticsDashboard sessions={sessions} />
-            <Dashboard sessions={sessions} onEditSession={editSession} onDeleteSession={deleteSession} />
+            <Dashboard sessions={sessions} onEditSession={editSession} onDeleteSession={deleteSession} profileName={activeProfile?.name} />
           </div>
         )}
 

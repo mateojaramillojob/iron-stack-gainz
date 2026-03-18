@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 interface AICoachProps {
   sessions: WorkoutSession[];
+  profileName?: string;
 }
 
 interface CoachAnalysis {
@@ -14,7 +15,7 @@ interface CoachAnalysis {
   motivation: string;
 }
 
-const AICoach = ({ sessions }: AICoachProps) => {
+const AICoach = ({ sessions, profileName }: AICoachProps) => {
   const [analysis, setAnalysis] = useState<CoachAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -26,7 +27,7 @@ const AICoach = ({ sessions }: AICoachProps) => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("ai-coach", {
-        body: { sessions },
+        body: { sessions, profileName },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);

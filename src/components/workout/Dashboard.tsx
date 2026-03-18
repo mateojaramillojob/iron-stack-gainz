@@ -17,9 +17,10 @@ interface DashboardProps {
   sessions: WorkoutSession[];
   onEditSession?: (session: WorkoutSession) => void;
   onDeleteSession?: (sessionId: string) => void;
+  profileName?: string;
 }
 
-const Dashboard = ({ sessions, onEditSession, onDeleteSession }: DashboardProps) => {
+const Dashboard = ({ sessions, onEditSession, onDeleteSession, profileName }: DashboardProps) => {
   const [selectedExercise, setSelectedExercise] = useState<string>("");
   const [timeRange, setTimeRange] = useState<TimeRange>("weekly");
 
@@ -154,7 +155,7 @@ const Dashboard = ({ sessions, onEditSession, onDeleteSession }: DashboardProps)
       )}
 
       {/* AI Coach */}
-      <AICoach sessions={sessions} />
+      <AICoach sessions={sessions} profileName={profileName} />
 
       {/* Volume Overview */}
       <div className="bg-card rounded-xl p-4 border border-border">

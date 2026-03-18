@@ -9,30 +9,35 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { sessions } = await req.json();
+    const { sessions, profileName } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const systemPrompt = `You are an encouraging personal trainer AI coach analyzing workout data. 
+    const userName = profileName || "athlete";
 
-Given a user's workout session history, provide:
-1. A brief performance summary (2-3 sentences)
-2. 3-4 "Key Takeaways" as bullet points comparing recent performance vs previous weeks
-3. An encouraging motivational closing (1-2 sentences)
+    const systemPrompt = `You are an encouraging personal trainer AI coach analyzing workout data for ${userName}.
 
-Be specific with numbers (volume, weights, frequency). Use a warm, motivating tone like a real personal trainer.
+Given a user's workout session history, provide PROACTIVE, PERSONALIZED insights. Be specific with real numbers from the data.
+
+Rules:
+- Address the user by name (${userName}).
+- If weekly volume is trending DOWN compared to previous weeks, acknowledge it and encourage a high-volume session.
+- If PRs were hit (new max weights), celebrate them specifically by exercise name.
+- If consistency is dropping (fewer sessions per week), motivate them to get back on track.
+- If volume is trending UP, congratulate the progression.
+- Compare this week vs last week concretely.
 
 Return JSON with this structure (no markdown):
 {
-  "summary": "...",
-  "takeaways": ["...", "..."],
-  "motivation": "..."
+  "summary": "2-3 sentences of personalized performance summary with specific numbers",
+  "takeaways": ["3-4 bullet points comparing recent performance, calling out specific exercises, weights, and trends"],
+  "motivation": "1-2 sentences of encouraging, personalized closing using their name"
 }`;
 
-    const userPrompt = `Here are the recent workout sessions (most recent first):
+    const userPrompt = `Here are the recent workout sessions for ${userName} (most recent first):
 ${JSON.stringify(sessions.slice(0, 20), null, 2)}
 
-Analyze trends in volume, frequency, weight progression, and consistency.`;
+Analyze trends in volume, frequency, weight progression, and consistency. Be specific about exercises, weights, and weekly comparisons.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
