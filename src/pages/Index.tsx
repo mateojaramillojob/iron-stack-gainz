@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Profile, Routine, RoutineDay, WorkoutSession } from "@/lib/types";
 import {
   fetchProfiles, insertProfile, deleteProfileById,
