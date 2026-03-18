@@ -48,6 +48,29 @@ const Index = () => {
 
   const activeProfile = profiles.find((p) => p.id === activeProfileId) || null;
 
+  // Determine the "Up Next" workout day
+  const getUpNextDay = useCallback(() => {
+    if (!routines.length) return null;
+    // Find the most recent session
+    const sorted = [...sessions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const lastSession = sorted[0];
+    if (!lastSession) {
+      // No sessions yet — suggest the first day of the first routine
+      const r = routines[0];
+      return r.days.length ? { routine: r, day: r.days[0] } : null;
+    }
+    // Find the routine of the last session
+    const routine = routines.find((r) => r.id === lastSession.routineId);
+    if (!routine) {
+      const r = routines[0];
+      return r.days.length ? { routine: r, day: r.days[0] } : null;
+    }
+    // Find the next day in that routine
+    const lastDayIdx = routine.days.findIndex((d) => d.id === lastSession.dayId);
+    const nextDayIdx = (lastDayIdx + 1) % routine.days.length;
+    return { routine, day: routine.days[nextDayIdx] };
+  }, [routines, sessions]);
+
   const saveProfile = async (profile: Profile) => {
     await insertProfile(profile);
     setProfiles((prev) => [...prev, profile]);
