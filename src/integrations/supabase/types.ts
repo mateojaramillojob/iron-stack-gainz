@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      credit_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          id: string
+          profile_id: string
+          type: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          profile_id: string
+          type: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          profile_id?: string
+          type?: string
+        }
+        Relationships: []
+      }
       custom_exercises: {
         Row: {
           created_at: string
@@ -45,6 +72,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      muscle_credits: {
+        Row: {
+          balance: number
+          created_at: string
+          id: string
+          last_free_question_date: string | null
+          profile_id: string
+          total_earned: number
+          total_spent: number
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          id?: string
+          last_free_question_date?: string | null
+          profile_id: string
+          total_earned?: number
+          total_spent?: number
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          id?: string
+          last_free_question_date?: string | null
+          profile_id?: string
+          total_earned?: number
+          total_spent?: number
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
