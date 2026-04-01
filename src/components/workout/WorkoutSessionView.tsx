@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { RoutineDay, ExerciseLog, WorkoutSession, Routine } from "@/lib/types";
 import { calculateVolume, calculateSessionVolume } from "@/lib/calculations";
-import { Check, CalendarIcon, X, ChevronLeft, ChevronRight, Info } from "lucide-react";
+import { Check, CalendarIcon, X, ChevronLeft, ChevronRight, Info, Trophy } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Calendar } from "@/components/ui/calendar";
@@ -13,57 +13,26 @@ interface PreviousExerciseData {
   [exerciseId: string]: { weight: number; reps: number; series: number };
 }
 
+interface AllTimePRData {
+  [exerciseName: string]: number; // max weight ever lifted
+}
+
 interface WorkoutSessionViewProps {
   routine: Routine;
   day: RoutineDay;
-  onFinish: (session: WorkoutSession) => void;
+  onFinish: (session: WorkoutSession, hasPR: boolean) => void;
   onCancel: () => void;
   onAutoSave?: (session: WorkoutSession) => void;
   editSession?: WorkoutSession;
   previousData?: PreviousExerciseData;
+  allTimePRs?: AllTimePRData;
 }
 
 const WEIGHT_OPTIONS = Array.from({ length: 80 }, (_, i) => (i + 1) * 2.5);
 const REPS_OPTIONS = Array.from({ length: 30 }, (_, i) => i + 1);
 const SETS_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1);
 
-const InlineScrollSelector = ({ values, selected, onChange, label }: {
-  values: number[];
-  selected: number;
-  onChange: (v: number) => void;
-  label: string;
-}) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const itemHeight = 40;
-
-  useEffect(() => {
-    if (containerRef.current) {
-      const idx = values.indexOf(selected);
-      if (idx >= 0) {
-        containerRef.current.scrollTop = idx * itemHeight - itemHeight * 1.5;
-      }
-    }
-  }, []);
-
-  return (
-    <div className="flex-1">
-      <p className="text-[10px] text-muted-foreground font-semibold text-center mb-1 uppercase tracking-wider">{label}</p>
-      <div ref={containerRef} className="h-[160px] overflow-y-auto rounded-lg bg-muted/50 scrollbar-thin relative">
-        <div className="absolute inset-x-0 top-[60px] h-[40px] bg-primary/15 rounded pointer-events-none z-10 border-y border-primary/30" />
-        {values.map((v) => (
-          <button key={v} onClick={() => onChange(v)}
-            className={`w-full h-[40px] flex items-center justify-center text-sm font-bold transition-colors relative z-20 ${
-              selected === v ? "text-primary" : "text-muted-foreground/60"
-            }`}>
-            {v}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, editSession, previousData }: WorkoutSessionViewProps) => {
+const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, editSession, previousData, allTimePRs }: WorkoutSessionViewProps) => {
   const [sessionDate, setSessionDate] = useState<Date>(editSession ? new Date(editSession.date) : new Date());
   const [logs, setLogs] = useState<Record<string, { weight: string; reps: string; series: string }>>(
     editSession
@@ -87,7 +56,6 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const [showGuide, setShowGuide] = useState<string | null>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const sessionId = useRef(editSession?.id || crypto.randomUUID());
 
   const buildSession = useCallback((): WorkoutSession => {
@@ -100,7 +68,6 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
         reps: parseInt(logs[ex.id].reps) || 0,
         series: parseInt(logs[ex.id].series) || 0,
       }));
-
     return {
       id: sessionId.current,
       routineId: routine.id,
@@ -113,13 +80,10 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
     };
   }, [day, logs, savedExercises, routine, sessionDate]);
 
-  // Auto-save debounced
   useEffect(() => {
     if (savedExercises.size === 0 || !onAutoSave) return;
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = setTimeout(() => {
-      onAutoSave(buildSession());
-    }, 1500);
+    autoSaveTimerRef.current = setTimeout(() => { onAutoSave(buildSession()); }, 1500);
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
   }, [logs, savedExercises, sessionDate, buildSession, onAutoSave]);
 
@@ -128,8 +92,19 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
     setSavedExercises((prev) => new Set(prev).add(exId));
   };
 
+  const checkForPRs = (): boolean => {
+    if (!allTimePRs) return false;
+    return day.exercises.some((ex) => {
+      if (!savedExercises.has(ex.id)) return false;
+      const w = parseFloat(logs[ex.id].weight) || 0;
+      const pr = allTimePRs[ex.name] || 0;
+      return w > pr;
+    });
+  };
+
   const finishSession = () => {
-    onFinish(buildSession());
+    const hasPR = checkForPRs();
+    onFinish(buildSession(), hasPR);
   };
 
   const totalVolume = day.exercises
@@ -144,10 +119,14 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
 
   const activeEx = day.exercises[activeCardIndex];
   const activeLog = logs[activeEx.id];
+  const activeWeight = parseFloat(activeLog.weight) || 0;
+  const activePR = allTimePRs?.[activeEx.name] || 0;
+  const isNewPR = activeWeight > activePR && activeWeight > 0;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="p-4 pb-32 max-w-md mx-auto">
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto p-4 pb-4 max-w-md mx-auto w-full">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -180,139 +159,167 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
           <p className="text-2xl font-bold font-mono-display text-primary">{totalVolume.toLocaleString()} <span className="text-sm text-muted-foreground font-sans">kg</span></p>
         </div>
 
-        {/* Card Stack Carousel */}
+        {/* Navigation dots */}
+        <div className="flex items-center justify-center gap-1.5 mb-3">
+          {day.exercises.map((ex, idx) => (
+            <button key={ex.id} onClick={() => setActiveCardIndex(idx)}
+              className={cn(
+                "h-2 rounded-full transition-all",
+                idx === activeCardIndex ? "w-6 bg-primary" : savedExercises.has(ex.id) ? "w-2 bg-primary/50" : "w-2 bg-border"
+              )} />
+          ))}
+        </div>
+
+        {/* Exercise Card - info only (no inputs) */}
         <div className="mb-4">
-          {/* Navigation dots */}
-          <div className="flex items-center justify-center gap-1.5 mb-3">
-            {day.exercises.map((ex, idx) => {
-              const isSaved = savedExercises.has(ex.id);
-              return (
-                <button key={ex.id} onClick={() => setActiveCardIndex(idx)}
-                  className={cn(
-                    "h-2 rounded-full transition-all",
-                    idx === activeCardIndex ? "w-6 bg-primary" : isSaved ? "w-2 bg-primary/50" : "w-2 bg-border"
-                  )} />
-              );
-            })}
-          </div>
-
-          {/* Card area */}
-          <div className="relative min-h-[420px]">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeEx.id}
-                initial={{ opacity: 0, x: 60, scale: 0.95 }}
-                animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: -60, scale: 0.95 }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="w-full"
-              >
-                <div
-                  className="bg-card rounded-2xl border border-border p-5 shadow-lg"
-                  style={{ borderTopWidth: 4, borderTopColor: activeEx.color || '#10b981' }}
-                >
-                  {/* Exercise header */}
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      {savedExercises.has(activeEx.id) && <Check size={18} className="text-primary" />}
-                      <h3 className="text-lg font-bold text-foreground">{activeEx.name}</h3>
-                    </div>
-                    <button onClick={() => setShowGuide(activeEx.name)} className="p-1.5 rounded-lg bg-muted text-muted-foreground active:text-primary">
-                      <Info size={16} />
-                    </button>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeEx.id}
+              initial={{ opacity: 0, x: 60, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -60, scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="w-full"
+            >
+              <div className="bg-card rounded-2xl border border-border p-5 shadow-lg"
+                style={{ borderTopWidth: 4, borderTopColor: activeEx.color || '#10b981' }}>
+                {/* Exercise header */}
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    {savedExercises.has(activeEx.id) && <Check size={18} className="text-primary" />}
+                    <h3 className="text-lg font-bold text-foreground">{activeEx.name}</h3>
                   </div>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    {activeEx.muscleGroup} · Default: {activeEx.defaultReps || 10} reps × {activeEx.defaultSets || 3} sets
-                  </p>
-
-                  {/* Previous data reference */}
-                  {previousData?.[activeEx.id] && (
-                    <div className="flex items-center gap-3 mb-3 px-3 py-2 bg-muted/60 rounded-lg border border-border/50">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Previous</span>
-                      <div className="flex gap-3 text-xs text-muted-foreground">
-                        <span>{previousData[activeEx.id].weight} kg</span>
-                        <span>×</span>
-                        <span>{previousData[activeEx.id].reps} reps</span>
-                        <span>×</span>
-                        <span>{previousData[activeEx.id].series} sets</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Scroll selectors */}
-                  <div className="flex gap-2 mb-4">
-                    <InlineScrollSelector
-                      values={WEIGHT_OPTIONS}
-                      selected={parseFloat(activeLog.weight) || 20}
-                      onChange={(v) => setLogs((prev) => ({ ...prev, [activeEx.id]: { ...prev[activeEx.id], weight: String(v) } }))}
-                      label="Weight (kg)"
-                    />
-                    <InlineScrollSelector
-                      values={REPS_OPTIONS}
-                      selected={parseInt(activeLog.reps) || activeEx.defaultReps || 10}
-                      onChange={(v) => setLogs((prev) => ({ ...prev, [activeEx.id]: { ...prev[activeEx.id], reps: String(v) } }))}
-                      label="Reps"
-                    />
-                    <InlineScrollSelector
-                      values={SETS_OPTIONS}
-                      selected={parseInt(activeLog.series) || activeEx.defaultSets || 3}
-                      onChange={(v) => setLogs((prev) => ({ ...prev, [activeEx.id]: { ...prev[activeEx.id], series: String(v) } }))}
-                      label="Sets"
-                    />
-                  </div>
-
-                  {/* Volume for this exercise */}
-                  <div className="bg-muted/50 rounded-xl p-3 mb-4 text-center">
-                    <p className="text-xs text-muted-foreground">Volume</p>
-                    <p className="text-lg font-bold font-mono-display text-primary">
-                      {((parseFloat(activeLog.weight) || 0) * (parseInt(activeLog.reps) || 0) * (parseInt(activeLog.series) || 0)).toLocaleString()}
-                      <span className="text-sm text-muted-foreground font-sans ml-1">kg</span>
-                    </p>
-                  </div>
-
-                  {/* Save this exercise */}
-                  <button
-                    onClick={() => saveExercise(activeEx.id, activeLog.weight, activeLog.reps, activeLog.series)}
-                    className={cn(
-                      "w-full py-3 rounded-xl font-bold text-sm active:scale-[0.98] transition-all",
-                      savedExercises.has(activeEx.id)
-                        ? "bg-primary/20 text-primary border border-primary/30"
-                        : "bg-primary text-primary-foreground glow-emerald"
-                    )}
-                  >
-                    {savedExercises.has(activeEx.id) ? "✓ Saved — Tap to Update" : "Save Exercise"}
+                  <button onClick={() => setShowGuide(activeEx.name)} className="p-1.5 rounded-lg bg-muted text-muted-foreground active:text-primary">
+                    <Info size={16} />
                   </button>
                 </div>
-              </motion.div>
-            </AnimatePresence>
+                <p className="text-xs text-muted-foreground mb-3">
+                  {activeEx.muscleGroup} · Default: {activeEx.defaultReps || 10} reps × {activeEx.defaultSets || 3} sets
+                </p>
 
-            {/* Prev / Next buttons */}
-            <div className="flex items-center justify-between mt-3">
-              <button onClick={goPrev} disabled={activeCardIndex === 0}
-                className="flex items-center gap-1 px-4 py-2 rounded-xl bg-secondary text-secondary-foreground font-semibold text-sm disabled:opacity-30 active:scale-95 transition-transform">
-                <ChevronLeft size={16} /> Prev
-              </button>
-              <span className="text-xs text-muted-foreground font-semibold">{activeCardIndex + 1} / {day.exercises.length}</span>
-              <button onClick={goNext} disabled={activeCardIndex === day.exercises.length - 1}
-                className="flex items-center gap-1 px-4 py-2 rounded-xl bg-secondary text-secondary-foreground font-semibold text-sm disabled:opacity-30 active:scale-95 transition-transform">
-                Next <ChevronRight size={16} />
-              </button>
-            </div>
+                {/* All-Time PR Gold Badge */}
+                {activePR > 0 && (
+                  <div className={cn(
+                    "flex items-center gap-2 mb-3 px-3 py-2 rounded-lg border",
+                    isNewPR
+                      ? "bg-warning/20 border-warning/40"
+                      : "bg-warning/10 border-warning/20"
+                  )}>
+                    <Trophy size={16} className="text-warning shrink-0" />
+                    <div className="flex-1">
+                      <span className="text-[10px] font-bold text-warning uppercase tracking-wider">
+                        {isNewPR ? "🎉 NEW ALL-TIME PR!" : "All-Time PR"}
+                      </span>
+                      <p className="text-sm font-bold text-warning">{isNewPR ? activeWeight : activePR} kg</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Previous data reference */}
+                {previousData?.[activeEx.id] && (
+                  <div className="flex items-center gap-3 mb-3 px-3 py-2 bg-muted/60 rounded-lg border border-border/50">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Last Session</span>
+                    <div className="flex gap-3 text-xs text-muted-foreground">
+                      <span>{previousData[activeEx.id].weight} kg</span>
+                      <span>×</span>
+                      <span>{previousData[activeEx.id].reps} reps</span>
+                      <span>×</span>
+                      <span>{previousData[activeEx.id].series} sets</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Volume for this exercise */}
+                <div className="bg-muted/50 rounded-xl p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Exercise Volume</p>
+                  <p className="text-lg font-bold font-mono-display text-primary">
+                    {((parseFloat(activeLog.weight) || 0) * (parseInt(activeLog.reps) || 0) * (parseInt(activeLog.series) || 0)).toLocaleString()}
+                    <span className="text-sm text-muted-foreground font-sans ml-1">kg</span>
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Prev / Next buttons */}
+          <div className="flex items-center justify-between mt-3">
+            <button onClick={goPrev} disabled={activeCardIndex === 0}
+              className="flex items-center gap-1 px-4 py-2 rounded-xl bg-secondary text-secondary-foreground font-semibold text-sm disabled:opacity-30 active:scale-95 transition-transform">
+              <ChevronLeft size={16} /> Prev
+            </button>
+            <span className="text-xs text-muted-foreground font-semibold">{activeCardIndex + 1} / {day.exercises.length}</span>
+            <button onClick={goNext} disabled={activeCardIndex === day.exercises.length - 1}
+              className="flex items-center gap-1 px-4 py-2 rounded-xl bg-secondary text-secondary-foreground font-semibold text-sm disabled:opacity-30 active:scale-95 transition-transform">
+              Next <ChevronRight size={16} />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Finish button */}
-      {savedExercises.size > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-lg border-t border-border">
-          <div className="max-w-md mx-auto">
-            <button onClick={finishSession}
-              className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold text-lg active:scale-[0.98] transition-transform glow-emerald">
-              {editSession ? "Save Changes" : "Finish Session"}
+      {/* ── Sticky Bottom Input Sheet ── */}
+      <div className="sticky bottom-0 left-0 right-0 bg-card/95 backdrop-blur-lg border-t border-border z-50 safe-area-bottom">
+        <div className="max-w-md mx-auto px-4 pt-3 pb-4">
+          {/* Compact inline inputs */}
+          <div className="flex gap-2 mb-3">
+            <div className="flex-1">
+              <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1 text-center">Weight (kg)</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={activeLog.weight}
+                onChange={(e) => setLogs((prev) => ({ ...prev, [activeEx.id]: { ...prev[activeEx.id], weight: e.target.value } }))}
+                placeholder="0"
+                className="w-full h-12 text-center text-lg font-bold rounded-xl bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1 text-center">Reps</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={activeLog.reps}
+                onChange={(e) => setLogs((prev) => ({ ...prev, [activeEx.id]: { ...prev[activeEx.id], reps: e.target.value } }))}
+                placeholder="0"
+                className="w-full h-12 text-center text-lg font-bold rounded-xl bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1 text-center">Sets</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={activeLog.series}
+                onChange={(e) => setLogs((prev) => ({ ...prev, [activeEx.id]: { ...prev[activeEx.id], series: e.target.value } }))}
+                placeholder="0"
+                className="w-full h-12 text-center text-lg font-bold rounded-xl bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+          </div>
+
+          {/* Save / Finish row */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => saveExercise(activeEx.id, activeLog.weight, activeLog.reps, activeLog.series)}
+              className={cn(
+                "flex-1 py-3 rounded-xl font-bold text-sm active:scale-[0.98] transition-all",
+                savedExercises.has(activeEx.id)
+                  ? "bg-primary/20 text-primary border border-primary/30"
+                  : "bg-primary text-primary-foreground"
+              )}
+            >
+              {savedExercises.has(activeEx.id) ? "✓ Update" : "Save Exercise"}
             </button>
+            {savedExercises.size > 0 && (
+              <button
+                onClick={finishSession}
+                className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm active:scale-[0.98] transition-transform"
+              >
+                {editSession ? "Save" : "Finish"}
+              </button>
+            )}
           </div>
         </div>
-      )}
+      </div>
 
       <ExerciseGuideModal exerciseName={showGuide} onClose={() => setShowGuide(null)} />
     </div>

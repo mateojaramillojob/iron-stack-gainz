@@ -6,6 +6,9 @@ import {
   fetchSessionsForProfile, upsertSession, deleteSessionById,
   fetchCustomExercises, insertCustomExercise,
 } from "@/lib/supabaseQueries";
+import {
+  fetchCredits, calculateSessionCredits, earnCredits, MuscleCredits,
+} from "@/lib/creditsService";
 import ProfileSelector from "@/components/workout/ProfileSelector";
 import RoutineManager from "@/components/workout/RoutineManager";
 import WorkoutSessionView from "@/components/workout/WorkoutSessionView";
@@ -13,10 +16,12 @@ import Dashboard from "@/components/workout/Dashboard";
 import ProfileView from "@/components/workout/ProfileView";
 import AIRoutineBuilder from "@/components/workout/AIRoutineBuilder";
 import AnalyticsDashboard from "@/components/workout/AnalyticsDashboard";
-import { Dumbbell, BarChart3, ListChecks, Play, LogOut, Loader2, Sparkles, User } from "lucide-react";
+import AICoachChat from "@/components/workout/AICoachChat";
+import CreditRewardModal from "@/components/workout/CreditRewardModal";
+import { Dumbbell, BarChart3, ListChecks, Play, LogOut, Loader2, Sparkles, User, Brain, Coins } from "lucide-react";
 import { toast } from "sonner";
 
-type Tab = "routines" | "dashboard" | "profile";
+type Tab = "routines" | "dashboard" | "coach" | "profile";
 
 const Index = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -31,41 +36,60 @@ const Index = () => {
   const [activeSession, setActiveSession] = useState<{ routine: Routine; day: RoutineDay; editSession?: WorkoutSession } | null>(null);
   const [showAIBuilder, setShowAIBuilder] = useState(false);
   const [managingRoutines, setManagingRoutines] = useState(false);
+  const [credits, setCredits] = useState<MuscleCredits | null>(null);
+  const [rewardModal, setRewardModal] = useState<{ open: boolean; breakdown: { label: string; amount: number }[]; total: number; newBalance: number }>({
+    open: false, breakdown: [], total: 0, newBalance: 0,
+  });
 
   useEffect(() => {
     fetchProfiles().then(setProfiles).catch(console.error).finally(() => setLoading(false));
   }, []);
 
+  const loadCredits = useCallback(async () => {
+    if (!activeProfileId) return;
+    try {
+      const c = await fetchCredits(activeProfileId);
+      setCredits(c);
+    } catch (e) { console.error("Failed to load credits:", e); }
+  }, [activeProfileId]);
+
   useEffect(() => {
-    if (!activeProfileId) { setRoutines([]); setSessions([]); return; }
+    if (!activeProfileId) { setRoutines([]); setSessions([]); setCredits(null); return; }
     localStorage.setItem("ironstack-active-profile-id", activeProfileId);
     Promise.all([
       fetchRoutinesForProfile(activeProfileId),
       fetchSessionsForProfile(activeProfileId),
       fetchCustomExercises(activeProfileId),
     ]).then(([r, s, ce]) => { setRoutines(r); setSessions(s); setCustomExercises(ce); }).catch(console.error);
-  }, [activeProfileId]);
+    loadCredits();
+  }, [activeProfileId, loadCredits]);
 
   const activeProfile = profiles.find((p) => p.id === activeProfileId) || null;
 
-  // Determine the "Up Next" workout day
+  // All-time PRs per exercise name
+  const allTimePRs = useMemo(() => {
+    const prs: Record<string, number> = {};
+    sessions.forEach((s) =>
+      s.exercises.forEach((e) => {
+        prs[e.exerciseName] = Math.max(prs[e.exerciseName] || 0, e.weight);
+      })
+    );
+    return prs;
+  }, [sessions]);
+
   const getUpNextDay = useCallback(() => {
     if (!routines.length) return null;
-    // Find the most recent session
     const sorted = [...sessions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     const lastSession = sorted[0];
     if (!lastSession) {
-      // No sessions yet — suggest the first day of the first routine
       const r = routines[0];
       return r.days.length ? { routine: r, day: r.days[0] } : null;
     }
-    // Find the routine of the last session
     const routine = routines.find((r) => r.id === lastSession.routineId);
     if (!routine) {
       const r = routines[0];
       return r.days.length ? { routine: r, day: r.days[0] } : null;
     }
-    // Find the next day in that routine
     const lastDayIdx = routine.days.findIndex((d) => d.id === lastSession.dayId);
     const nextDayIdx = (lastDayIdx + 1) % routine.days.length;
     return { routine, day: routine.days[nextDayIdx] };
@@ -99,7 +123,7 @@ const Index = () => {
     setRoutines((prev) => prev.filter((r) => r.id !== id));
   };
 
-  const finishSession = async (session: WorkoutSession) => {
+  const finishSession = async (session: WorkoutSession, hasPR: boolean) => {
     if (!activeProfileId) return;
     await upsertSession(activeProfileId, session);
     setSessions((prev) => {
@@ -108,6 +132,14 @@ const Index = () => {
       return [session, ...prev];
     });
     setActiveSession(null);
+
+    // Calculate and award credits
+    const { total, breakdown } = calculateSessionCredits(session, sessions, hasPR);
+    await earnCredits(activeProfileId, total, "session_complete", `Completed ${session.routineName} - ${session.dayLabel}`);
+    const updatedCredits = await fetchCredits(activeProfileId);
+    setCredits(updatedCredits);
+    setRewardModal({ open: true, breakdown, total, newBalance: updatedCredits.balance });
+
     setTab("dashboard");
   };
 
@@ -156,7 +188,6 @@ const Index = () => {
     setProfiles((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
   };
 
-  // Compute previous exercise data for the active session's day
   const previousData2 = useMemo(() => {
     if (!activeSession) return {};
     const dayId = activeSession.day.id;
@@ -198,6 +229,7 @@ const Index = () => {
         onAutoSave={autoSaveSession}
         editSession={activeSession.editSession}
         previousData={previousData2}
+        allTimePRs={allTimePRs}
       />
     );
   }
@@ -221,16 +253,23 @@ const Index = () => {
               <p className="text-xs text-muted-foreground">{activeProfile.emoji} {activeProfile.name}</p>
             </div>
           </div>
-          <button onClick={() => { setActiveProfileId(null); localStorage.removeItem("ironstack-active-profile-id"); }}
-            className="p-2 rounded-lg bg-secondary text-secondary-foreground active:scale-95 transition-transform">
-            <LogOut size={18} />
-          </button>
+          <div className="flex items-center gap-2">
+            {credits && (
+              <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-warning/15 border border-warning/30">
+                <Coins size={12} className="text-warning" />
+                <span className="text-xs font-bold text-warning">{credits.balance}</span>
+              </div>
+            )}
+            <button onClick={() => { setActiveProfileId(null); localStorage.removeItem("ironstack-active-profile-id"); }}
+              className="p-2 rounded-lg bg-secondary text-secondary-foreground active:scale-95 transition-transform">
+              <LogOut size={18} />
+            </button>
+          </div>
         </div>
 
         {/* ── Routines Tab ── */}
         {tab === "routines" && (
           <div>
-            {/* Up Next Card */}
             {(() => {
               const upNext = getUpNextDay();
               if (upNext) {
@@ -261,7 +300,6 @@ const Index = () => {
               return null;
             })()}
 
-            {/* AI Routine Builder CTA */}
             <button onClick={() => setShowAIBuilder(true)}
               className="w-full flex items-center gap-3 p-4 mb-4 bg-primary/10 rounded-xl border border-primary/20 active:scale-[0.98] transition-transform">
               <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
@@ -273,7 +311,6 @@ const Index = () => {
               </div>
             </button>
 
-            {/* All Routines */}
             <div className="mb-4">
               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">All Workouts</h2>
               {routines.length > 0 ? (
@@ -307,7 +344,6 @@ const Index = () => {
               )}
             </div>
 
-            {/* Manage routines button */}
             <button onClick={() => setManagingRoutines(true)}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-secondary text-secondary-foreground font-semibold text-sm active:scale-[0.98] transition-transform">
               <ListChecks size={16} />
@@ -324,6 +360,19 @@ const Index = () => {
           </div>
         )}
 
+        {/* ── AI Coach Tab ── */}
+        {tab === "coach" && activeProfileId && (
+          <div className="fixed inset-0 top-0 bottom-[68px] bg-background z-40">
+            <AICoachChat
+              sessions={sessions}
+              profileName={activeProfile?.name}
+              profileId={activeProfileId}
+              credits={credits}
+              onCreditsChange={loadCredits}
+            />
+          </div>
+        )}
+
         {/* ── Profile Tab ── */}
         {tab === "profile" && (
           <ProfileView profile={activeProfile} onProfileUpdated={handleProfileUpdated} />
@@ -336,6 +385,7 @@ const Index = () => {
           {([
             { key: "routines" as Tab, icon: ListChecks, label: "Routines" },
             { key: "dashboard" as Tab, icon: BarChart3, label: "Dashboard" },
+            { key: "coach" as Tab, icon: Brain, label: "AI Coach" },
             { key: "profile" as Tab, icon: User, label: "Profile" },
           ]).map(({ key, icon: Icon, label }) => (
             <button key={key} onClick={() => setTab(key)}
@@ -346,6 +396,15 @@ const Index = () => {
           ))}
         </div>
       </nav>
+
+      {/* Credit Reward Modal */}
+      <CreditRewardModal
+        open={rewardModal.open}
+        onClose={() => setRewardModal((p) => ({ ...p, open: false }))}
+        breakdown={rewardModal.breakdown}
+        total={rewardModal.total}
+        newBalance={rewardModal.newBalance}
+      />
     </div>
   );
 };
