@@ -203,6 +203,20 @@ const Index = () => {
     return map;
   }, [activeSession, sessions]);
 
+  // Last logged set per exercise NAME (across all sessions) — used for variant lookups
+  const previousByName = useMemo(() => {
+    const sorted = [...sessions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const map: Record<string, { weight: number; reps: number; series: number; date: string }> = {};
+    sorted.forEach((s) => {
+      s.exercises.forEach((e) => {
+        if (!map[e.exerciseName]) {
+          map[e.exerciseName] = { weight: e.weight, reps: e.reps, series: e.series, date: s.date };
+        }
+      });
+    });
+    return map;
+  }, [sessions]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -230,6 +244,7 @@ const Index = () => {
         editSession={activeSession.editSession}
         previousData={previousData2}
         allTimePRs={allTimePRs}
+        previousByName={previousByName}
       />
     );
   }
