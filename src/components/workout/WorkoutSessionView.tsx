@@ -1,13 +1,24 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { RoutineDay, ExerciseLog, WorkoutSession, Routine } from "@/lib/types";
 import { calculateVolume, calculateSessionVolume } from "@/lib/calculations";
-import { Check, CalendarIcon, X, ChevronLeft, ChevronRight, Info, Trophy } from "lucide-react";
+import { Check, CalendarIcon, X, ChevronLeft, ChevronRight, Info, Trophy, Shuffle } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { motion, AnimatePresence } from "framer-motion";
 import ExerciseGuideModal from "./ExerciseGuideModal";
+import MotivationModal from "./MotivationModal";
+import { getVariantsFor, randomMotivation } from "@/lib/exerciseVariants";
+import { getMuscleGroupForExercise } from "@/lib/exerciseLibrary";
 
 interface PreviousExerciseData {
   [exerciseId: string]: { weight: number; reps: number; series: number };
@@ -15,6 +26,10 @@ interface PreviousExerciseData {
 
 interface AllTimePRData {
   [exerciseName: string]: number; // max weight ever lifted
+}
+
+interface PreviousByNameData {
+  [exerciseName: string]: { weight: number; reps: number; series: number; date: string };
 }
 
 interface WorkoutSessionViewProps {
@@ -26,13 +41,16 @@ interface WorkoutSessionViewProps {
   editSession?: WorkoutSession;
   previousData?: PreviousExerciseData;
   allTimePRs?: AllTimePRData;
+  previousByName?: PreviousByNameData;
 }
 
 const WEIGHT_OPTIONS = Array.from({ length: 80 }, (_, i) => (i + 1) * 2.5);
 const REPS_OPTIONS = Array.from({ length: 30 }, (_, i) => i + 1);
 const SETS_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1);
 
-const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, editSession, previousData, allTimePRs }: WorkoutSessionViewProps) => {
+const MOTIVATION_CHANCE = 0.2;
+
+const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, editSession, previousData, allTimePRs, previousByName }: WorkoutSessionViewProps) => {
   const [sessionDate, setSessionDate] = useState<Date>(editSession ? new Date(editSession.date) : new Date());
   const [logs, setLogs] = useState<Record<string, { weight: string; reps: string; series: string }>>(
     editSession
@@ -55,15 +73,43 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
   );
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const [showGuide, setShowGuide] = useState<string | null>(null);
+  // Per-exercise variant overrides (exerciseId -> chosen variant name).
+  // Only affects the current session; does not mutate the routine template.
+  const [variantOverrides, setVariantOverrides] = useState<Record<string, string>>({});
+  const [motivation, setMotivation] = useState<{ open: boolean; title: string; quote: string }>({
+    open: false,
+    title: "",
+    quote: "",
+  });
+  const pendingActionRef = useRef<(() => void) | null>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionId = useRef(editSession?.id || crypto.randomUUID());
+
+  const getActiveName = (ex: { id: string; name: string }) => variantOverrides[ex.id] || ex.name;
+
+  const maybeTriggerMotivation = (next: () => void) => {
+    if (Math.random() < MOTIVATION_CHANCE) {
+      const m = randomMotivation();
+      pendingActionRef.current = next;
+      setMotivation({ open: true, title: m.title, quote: m.quote });
+    } else {
+      next();
+    }
+  };
+
+  const dismissMotivation = () => {
+    setMotivation((m) => ({ ...m, open: false }));
+    const fn = pendingActionRef.current;
+    pendingActionRef.current = null;
+    if (fn) fn();
+  };
 
   const buildSession = useCallback((): WorkoutSession => {
     const exerciseLogs: ExerciseLog[] = day.exercises
       .filter((ex) => savedExercises.has(ex.id))
       .map((ex) => ({
         exerciseId: ex.id,
-        exerciseName: ex.name,
+        exerciseName: variantOverrides[ex.id] || ex.name,
         weight: parseFloat(logs[ex.id].weight) || 0,
         reps: parseInt(logs[ex.id].reps) || 0,
         series: parseInt(logs[ex.id].series) || 0,
@@ -78,7 +124,7 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
       exercises: exerciseLogs,
       totalVolume: calculateSessionVolume(exerciseLogs),
     };
-  }, [day, logs, savedExercises, routine, sessionDate]);
+  }, [day, logs, savedExercises, routine, sessionDate, variantOverrides]);
 
   useEffect(() => {
     if (savedExercises.size === 0 || !onAutoSave) return;
@@ -97,7 +143,7 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
     return day.exercises.some((ex) => {
       if (!savedExercises.has(ex.id)) return false;
       const w = parseFloat(logs[ex.id].weight) || 0;
-      const pr = allTimePRs[ex.name] || 0;
+      const pr = allTimePRs[getActiveName(ex)] || 0;
       return w > pr;
     });
   };
@@ -114,14 +160,48 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
       return sum + calculateVolume(parseFloat(l.weight) || 0, parseInt(l.reps) || 0, parseInt(l.series) || 0);
     }, 0);
 
-  const goNext = () => setActiveCardIndex((i) => Math.min(i + 1, day.exercises.length - 1));
+  const goNext = () =>
+    maybeTriggerMotivation(() => setActiveCardIndex((i) => Math.min(i + 1, day.exercises.length - 1)));
   const goPrev = () => setActiveCardIndex((i) => Math.max(i - 1, 0));
 
   const activeEx = day.exercises[activeCardIndex];
+  const activeName = getActiveName(activeEx);
   const activeLog = logs[activeEx.id];
   const activeWeight = parseFloat(activeLog.weight) || 0;
-  const activePR = allTimePRs?.[activeEx.name] || 0;
+  const activePR = allTimePRs?.[activeName] || 0;
   const isNewPR = activeWeight > activePR && activeWeight > 0;
+  const variantOptions = getVariantsFor(activeName);
+  const isVariant = variantOverrides[activeEx.id] && variantOverrides[activeEx.id] !== activeEx.name;
+
+  // Last session data — prefer name-based lookup when a variant is active or when day-based lookup misses.
+  const lastByName = previousByName?.[activeName];
+  const lastByDay = previousData?.[activeEx.id];
+  const activeLastSession = isVariant ? lastByName : (lastByDay || lastByName);
+
+  const switchVariant = (newName: string) => {
+    setVariantOverrides((prev) => ({ ...prev, [activeEx.id]: newName }));
+    // Pre-fill weight/reps from the variant's last session if available
+    const last = previousByName?.[newName];
+    setLogs((prev) => ({
+      ...prev,
+      [activeEx.id]: {
+        weight: last ? String(last.weight) : "",
+        reps: last ? String(last.reps) : prev[activeEx.id].reps,
+        series: last ? String(last.series) : prev[activeEx.id].series,
+      },
+    }));
+    // Switching variant invalidates a previously-saved log for this slot
+    setSavedExercises((prev) => {
+      const next = new Set(prev);
+      next.delete(activeEx.id);
+      return next;
+    });
+  };
+
+  const saveActive = () => {
+    saveExercise(activeEx.id, activeLog.weight, activeLog.reps, activeLog.series);
+    maybeTriggerMotivation(() => {});
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -187,14 +267,41 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
                     {savedExercises.has(activeEx.id) && <Check size={18} className="text-primary" />}
-                    <h3 className="text-lg font-bold text-foreground">{activeEx.name}</h3>
+                    <h3 className="text-lg font-bold text-foreground">{activeName}</h3>
+                    {variantOptions.length > 0 && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            className="p-1.5 rounded-lg bg-primary/10 text-primary active:scale-95 transition-transform"
+                            aria-label="Switch variant"
+                          >
+                            <Shuffle size={14} />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-56">
+                          <DropdownMenuLabel>Switch variant</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          {isVariant && (
+                            <DropdownMenuItem onClick={() => switchVariant(activeEx.name)}>
+                              ↺ Reset to {activeEx.name}
+                            </DropdownMenuItem>
+                          )}
+                          {variantOptions.map((v) => (
+                            <DropdownMenuItem key={v} onClick={() => switchVariant(v)}>
+                              {v}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
-                  <button onClick={() => setShowGuide(activeEx.name)} className="p-1.5 rounded-lg bg-muted text-muted-foreground active:text-primary">
+                  <button onClick={() => setShowGuide(activeName)} className="p-1.5 rounded-lg bg-muted text-muted-foreground active:text-primary">
                     <Info size={16} />
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground mb-3">
-                  {activeEx.muscleGroup} · Default: {activeEx.defaultReps || 10} reps × {activeEx.defaultSets || 3} sets
+                  {isVariant ? getMuscleGroupForExercise(activeName) : activeEx.muscleGroup} · Default: {activeEx.defaultReps || 10} reps × {activeEx.defaultSets || 3} sets
+                  {isVariant && <span className="ml-1 text-primary">· variant</span>}
                 </p>
 
                 {/* All-Time PR Gold Badge */}
@@ -216,15 +323,15 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
                 )}
 
                 {/* Previous data reference */}
-                {previousData?.[activeEx.id] && (
+                {activeLastSession && (
                   <div className="flex items-center gap-3 mb-3 px-3 py-2 bg-muted/60 rounded-lg border border-border/50">
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Last Session</span>
                     <div className="flex gap-3 text-xs text-muted-foreground">
-                      <span>{previousData[activeEx.id].weight} kg</span>
+                      <span>{activeLastSession.weight} kg</span>
                       <span>×</span>
-                      <span>{previousData[activeEx.id].reps} reps</span>
+                      <span>{activeLastSession.reps} reps</span>
                       <span>×</span>
-                      <span>{previousData[activeEx.id].series} sets</span>
+                      <span>{activeLastSession.series} sets</span>
                     </div>
                   </div>
                 )}
@@ -299,7 +406,7 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
           {/* Save / Finish row */}
           <div className="flex gap-2">
             <button
-              onClick={() => saveExercise(activeEx.id, activeLog.weight, activeLog.reps, activeLog.series)}
+              onClick={saveActive}
               className={cn(
                 "flex-1 py-3 rounded-xl font-bold text-sm active:scale-[0.98] transition-all",
                 savedExercises.has(activeEx.id)
@@ -322,6 +429,12 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
       </div>
 
       <ExerciseGuideModal exerciseName={showGuide} onClose={() => setShowGuide(null)} />
+      <MotivationModal
+        open={motivation.open}
+        title={motivation.title}
+        quote={motivation.quote}
+        onDismiss={dismissMotivation}
+      />
     </div>
   );
 };
