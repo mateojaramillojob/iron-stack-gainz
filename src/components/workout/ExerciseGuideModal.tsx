@@ -1,5 +1,6 @@
-import { getExerciseGuide, MUSCLE_GROUP_IMAGES } from "@/lib/exerciseGuides";
+import { getExerciseGuide } from "@/lib/exerciseGuides";
 import { getMuscleGroupForExercise } from "@/lib/exerciseLibrary";
+import ExerciseReferenceMedia from "./ExerciseReferenceMedia";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Eye, Lightbulb } from "lucide-react";
 
@@ -13,19 +14,14 @@ const ExerciseGuideModal = ({ exerciseName, onClose }: ExerciseGuideModalProps) 
 
   const guide = getExerciseGuide(exerciseName);
   const muscleGroup = getMuscleGroupForExercise(exerciseName);
-  const emoji = MUSCLE_GROUP_IMAGES[muscleGroup] || "🏋️";
 
   return (
     <Dialog open={!!exerciseName} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-sm mx-auto rounded-2xl">
         <DialogHeader>
-          <div className="flex items-center gap-3 mb-1">
-            <span className="text-4xl">{emoji}</span>
-            <div>
-              <DialogTitle className="text-lg font-bold">{exerciseName}</DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">{muscleGroup}</DialogDescription>
-            </div>
-          </div>
+          <ExerciseReferenceMedia exerciseName={exerciseName} className="h-40 mb-2" />
+          <DialogTitle className="text-lg font-bold">{exerciseName}</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">{muscleGroup}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

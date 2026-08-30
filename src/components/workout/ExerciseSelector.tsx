@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { MUSCLE_GROUPS } from "@/lib/exerciseLibrary";
+import MuscleBodyDiagram from "./MuscleBodyDiagram";
+import { getMuscleTargetFor } from "@/lib/exerciseMuscleMap";
 import { ArrowLeft, Plus, Info, PenLine } from "lucide-react";
 import ExerciseGuideModal from "./ExerciseGuideModal";
 
@@ -51,8 +53,11 @@ const ExerciseSelector = ({ onSelect, onClose, customExercises = {}, onAddCustom
                   onSelect(ex, group.label);
                   setSelectedGroup(null);
                 }}
-                className="flex-1 text-left active:scale-[0.98] transition-transform"
+                className="flex-1 flex items-center gap-3 text-left active:scale-[0.98] transition-transform"
               >
+                <span className="w-9 h-9 shrink-0 rounded-lg bg-muted flex items-center justify-center overflow-hidden py-0.5">
+                  <MuscleBodyDiagram view={getMuscleTargetFor(ex).view} highlight={getMuscleTargetFor(ex).muscles} />
+                </span>
                 <span className="text-sm font-medium text-foreground">{ex}</span>
               </button>
               <div className="flex items-center gap-2">

@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { RoutineDay, ExerciseLog, WorkoutSession, Routine } from "@/lib/types";
-import { calculateVolume, calculateSessionVolume } from "@/lib/calculations";
-import { Check, CalendarIcon, X, ChevronLeft, ChevronRight, Info, Trophy, Shuffle } from "lucide-react";
-import { format } from "date-fns";
+import { calculateSessionVolume } from "@/lib/calculations";
+import { Check, X, ChevronLeft, ChevronRight, Info, Trophy, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   DropdownMenu,
@@ -16,8 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { motion, AnimatePresence } from "framer-motion";
 import ExerciseGuideModal from "./ExerciseGuideModal";
-import MotivationModal from "./MotivationModal";
-import { getVariantsFor, randomMotivation } from "@/lib/exerciseVariants";
+import ExerciseReferenceMedia from "./ExerciseReferenceMedia";
+import { getVariantsFor } from "@/lib/exerciseVariants";
 import { getMuscleGroupForExercise } from "@/lib/exerciseLibrary";
 
 interface PreviousExerciseData {
@@ -48,10 +46,81 @@ const WEIGHT_OPTIONS = Array.from({ length: 80 }, (_, i) => (i + 1) * 2.5);
 const REPS_OPTIONS = Array.from({ length: 30 }, (_, i) => i + 1);
 const SETS_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1);
 
-const MOTIVATION_CHANCE = 0.2;
+interface StepperInputProps {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  options: number[];
+  step: number;
+}
+
+const StepperInput = ({ label, value, onChange, options, step }: StepperInputProps) => {
+  const [open, setOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const el = listRef.current?.querySelector('[data-selected="true"]');
+    el?.scrollIntoView({ block: "center" });
+  }, [open]);
+
+  const round = (n: number) => Math.round(n * 100) / 100;
+
+  return (
+    <div className="flex-1">
+      <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1 text-center">{label}</label>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => onChange(round(Math.max(0, value - step)))}
+          aria-label={`Decrease ${label}`}
+          className="w-9 h-12 shrink-0 rounded-lg bg-muted/70 text-foreground text-lg font-bold active:scale-95 transition-transform"
+        >
+          −
+        </button>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="flex-1 min-w-0 h-12 text-center text-lg font-bold rounded-lg bg-muted/50 border border-border text-foreground active:bg-muted transition-colors"
+            >
+              {value || 0}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-20 p-1 max-h-64 overflow-y-auto" align="center">
+            <div ref={listRef}>
+              {options.map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  data-selected={opt === value}
+                  onClick={() => { onChange(opt); setOpen(false); }}
+                  className={cn(
+                    "w-full text-center py-2 rounded-md text-sm font-semibold transition-colors",
+                    opt === value ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"
+                  )}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+        <button
+          type="button"
+          onClick={() => onChange(round(value + step))}
+          aria-label={`Increase ${label}`}
+          className="w-9 h-12 shrink-0 rounded-lg bg-muted/70 text-foreground text-lg font-bold active:scale-95 transition-transform"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, editSession, previousData, allTimePRs, previousByName }: WorkoutSessionViewProps) => {
-  const [sessionDate, setSessionDate] = useState<Date>(editSession ? new Date(editSession.date) : new Date());
+  const sessionDate = useRef(editSession ? new Date(editSession.date) : new Date()).current;
   const [logs, setLogs] = useState<Record<string, { weight: string; reps: string; series: string }>>(
     editSession
       ? Object.fromEntries(
@@ -62,11 +131,15 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
               : { weight: "", reps: String(ex.defaultReps || ""), series: String(ex.defaultSets || "") }];
           })
         )
-      : Object.fromEntries(day.exercises.map((ex) => [ex.id, {
-          weight: "",
-          reps: String(ex.defaultReps || 10),
-          series: String(ex.defaultSets || 3),
-        }]))
+      : Object.fromEntries(day.exercises.map((ex) => {
+          // Preload last time's numbers so progressive overload starts from where you left off.
+          const prev = previousData?.[ex.id] || previousByName?.[ex.name];
+          return [ex.id, {
+            weight: prev ? String(prev.weight) : "",
+            reps: prev ? String(prev.reps) : String(ex.defaultReps || 10),
+            series: prev ? String(prev.series) : String(ex.defaultSets || 3),
+          }];
+        }))
   );
   const [savedExercises, setSavedExercises] = useState<Set<string>>(
     editSession ? new Set(editSession.exercises.map((e) => e.exerciseId)) : new Set()
@@ -76,33 +149,10 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
   // Per-exercise variant overrides (exerciseId -> chosen variant name).
   // Only affects the current session; does not mutate the routine template.
   const [variantOverrides, setVariantOverrides] = useState<Record<string, string>>({});
-  const [motivation, setMotivation] = useState<{ open: boolean; title: string; quote: string }>({
-    open: false,
-    title: "",
-    quote: "",
-  });
-  const pendingActionRef = useRef<(() => void) | null>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionId = useRef(editSession?.id || crypto.randomUUID());
 
   const getActiveName = (ex: { id: string; name: string }) => variantOverrides[ex.id] || ex.name;
-
-  const maybeTriggerMotivation = (next: () => void) => {
-    if (Math.random() < MOTIVATION_CHANCE) {
-      const m = randomMotivation();
-      pendingActionRef.current = next;
-      setMotivation({ open: true, title: m.title, quote: m.quote });
-    } else {
-      next();
-    }
-  };
-
-  const dismissMotivation = () => {
-    setMotivation((m) => ({ ...m, open: false }));
-    const fn = pendingActionRef.current;
-    pendingActionRef.current = null;
-    if (fn) fn();
-  };
 
   const buildSession = useCallback((): WorkoutSession => {
     const exerciseLogs: ExerciseLog[] = day.exercises
@@ -153,17 +203,10 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
     onFinish(buildSession(), hasPR);
   };
 
-  const totalVolume = day.exercises
-    .filter((ex) => savedExercises.has(ex.id))
-    .reduce((sum, ex) => {
-      const l = logs[ex.id];
-      return sum + calculateVolume(parseFloat(l.weight) || 0, parseInt(l.reps) || 0, parseInt(l.series) || 0);
-    }, 0);
-
-  const goNext = () =>
-    maybeTriggerMotivation(() => setActiveCardIndex((i) => Math.min(i + 1, day.exercises.length - 1)));
+  const goNext = () => setActiveCardIndex((i) => Math.min(i + 1, day.exercises.length - 1));
   const goPrev = () => setActiveCardIndex((i) => Math.max(i - 1, 0));
 
+  const nextEx = day.exercises[activeCardIndex + 1];
   const activeEx = day.exercises[activeCardIndex];
   const activeName = getActiveName(activeEx);
   const activeLog = logs[activeEx.id];
@@ -200,7 +243,6 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
 
   const saveActive = () => {
     saveExercise(activeEx.id, activeLog.weight, activeLog.reps, activeLog.series);
-    maybeTriggerMotivation(() => {});
   };
 
   return (
@@ -209,48 +251,13 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
       <div className="flex-1 overflow-y-auto p-4 pb-4 max-w-md mx-auto w-full">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-foreground">{routine.name}</h2>
-            <p className="text-sm text-muted-foreground">{day.label} · {savedExercises.size}/{day.exercises.length} done</p>
-          </div>
+          <h2 className="text-xl font-bold text-foreground">{routine.name}</h2>
           <button onClick={onCancel} className="p-2 rounded-lg bg-secondary text-secondary-foreground active:scale-95 transition-transform">
             <X size={20} />
           </button>
         </div>
 
-        {/* Date picker */}
-        <div className="mb-4">
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="w-full flex items-center gap-2 px-4 py-3 rounded-xl bg-card border border-border text-left transition-colors active:scale-[0.98]">
-                <CalendarIcon size={16} className="text-primary" />
-                <span className="text-sm font-semibold text-foreground">{format(sessionDate, "EEEE, MMMM d, yyyy")}</span>
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={sessionDate} onSelect={(d) => d && setSessionDate(d)} initialFocus className={cn("p-3 pointer-events-auto")} />
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        {/* Volume summary */}
-        <div className="bg-card rounded-xl p-4 border border-border mb-4">
-          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Session Volume</p>
-          <p className="text-2xl font-bold font-mono-display text-primary">{totalVolume.toLocaleString()} <span className="text-sm text-muted-foreground font-sans">kg</span></p>
-        </div>
-
-        {/* Navigation dots */}
-        <div className="flex items-center justify-center gap-1.5 mb-3">
-          {day.exercises.map((ex, idx) => (
-            <button key={ex.id} onClick={() => setActiveCardIndex(idx)}
-              className={cn(
-                "h-2 rounded-full transition-all",
-                idx === activeCardIndex ? "w-6 bg-primary" : savedExercises.has(ex.id) ? "w-2 bg-primary/50" : "w-2 bg-border"
-              )} />
-          ))}
-        </div>
-
-        {/* Exercise Card - info only (no inputs) */}
+        {/* Exercise Card — leads with the big picture, everything else follows below */}
         <div className="mb-4">
           <AnimatePresence mode="wait">
             <motion.div
@@ -263,11 +270,14 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
             >
               <div className="bg-card rounded-2xl border border-border p-5 shadow-lg"
                 style={{ borderTopWidth: 4, borderTopColor: activeEx.color || '#10b981' }}>
+                {/* Reference illustration — how to perform this exercise, first thing you see */}
+                <ExerciseReferenceMedia exerciseName={activeName} className="h-48 mb-3" />
+
                 {/* Exercise header */}
                 <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    {savedExercises.has(activeEx.id) && <Check size={18} className="text-primary" />}
-                    <h3 className="text-lg font-bold text-foreground">{activeName}</h3>
+                  <div className="flex items-center gap-2 min-w-0">
+                    {savedExercises.has(activeEx.id) && <Check size={18} className="text-primary shrink-0" />}
+                    <h3 className="text-lg font-bold text-foreground truncate">{activeName}</h3>
                     {variantOptions.length > 0 && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -304,49 +314,39 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
                   {isVariant && <span className="ml-1 text-primary">· variant</span>}
                 </p>
 
-                {/* All-Time PR Gold Badge */}
-                {activePR > 0 && (
-                  <div className={cn(
-                    "flex items-center gap-2 mb-3 px-3 py-2 rounded-lg border",
-                    isNewPR
-                      ? "bg-warning/20 border-warning/40"
-                      : "bg-warning/10 border-warning/20"
-                  )}>
-                    <Trophy size={16} className="text-warning shrink-0" />
-                    <div className="flex-1">
-                      <span className="text-[10px] font-bold text-warning uppercase tracking-wider">
-                        {isNewPR ? "🎉 NEW ALL-TIME PR!" : "All-Time PR"}
-                      </span>
-                      <p className="text-sm font-bold text-warning">{isNewPR ? activeWeight : activePR} kg</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Previous data reference */}
-                {activeLastSession && (
-                  <div className="flex items-center gap-3 mb-3 px-3 py-2 bg-muted/60 rounded-lg border border-border/50">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Last Session</span>
-                    <div className="flex gap-3 text-xs text-muted-foreground">
-                      <span>{activeLastSession.weight} kg</span>
-                      <span>×</span>
-                      <span>{activeLastSession.reps} reps</span>
-                      <span>×</span>
-                      <span>{activeLastSession.series} sets</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Volume for this exercise */}
-                <div className="bg-muted/50 rounded-xl p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Exercise Volume</p>
-                  <p className="text-lg font-bold font-mono-display text-primary">
-                    {((parseFloat(activeLog.weight) || 0) * (parseInt(activeLog.reps) || 0) * (parseInt(activeLog.series) || 0)).toLocaleString()}
-                    <span className="text-sm text-muted-foreground font-sans ml-1">kg</span>
-                  </p>
+                {/* Compact stats strip — PR / last session / volume */}
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                  {activePR > 0 && (
+                    <span className={cn(
+                      "flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap shrink-0",
+                      isNewPR ? "bg-warning/20 text-warning" : "bg-warning/10 text-warning/80"
+                    )}>
+                      <Trophy size={11} /> {isNewPR ? `NEW PR ${activeWeight}kg` : `PR ${activePR}kg`}
+                    </span>
+                  )}
+                  {activeLastSession && (
+                    <span className="px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-[11px] font-semibold whitespace-nowrap shrink-0">
+                      Last {activeLastSession.weight}kg × {activeLastSession.reps} × {activeLastSession.series}
+                    </span>
+                  )}
+                  <span className="px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-[11px] font-semibold whitespace-nowrap shrink-0">
+                    Vol {((parseFloat(activeLog.weight) || 0) * (parseInt(activeLog.reps) || 0) * (parseInt(activeLog.series) || 0)).toLocaleString()}kg
+                  </span>
                 </div>
               </div>
             </motion.div>
           </AnimatePresence>
+
+          {/* Navigation dots */}
+          <div className="flex items-center justify-center gap-1.5 mt-3">
+            {day.exercises.map((ex, idx) => (
+              <button key={ex.id} onClick={() => setActiveCardIndex(idx)}
+                className={cn(
+                  "h-2 rounded-full transition-all",
+                  idx === activeCardIndex ? "w-6 bg-primary" : savedExercises.has(ex.id) ? "w-2 bg-primary/50" : "w-2 bg-border"
+                )} />
+            ))}
+          </div>
 
           {/* Prev / Next buttons */}
           <div className="flex items-center justify-between mt-3">
@@ -360,47 +360,44 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
               Next <ChevronRight size={16} />
             </button>
           </div>
+
+          {/* What's coming up next */}
+          {nextEx ? (
+            <p className="text-center text-base text-muted-foreground mt-3">
+              Next up: <span className="font-bold text-foreground">{getActiveName(nextEx)}</span>
+            </p>
+          ) : (
+            <p className="text-center text-base font-bold text-foreground mt-3">Last exercise — finish strong 💪</p>
+          )}
         </div>
       </div>
 
       {/* ── Sticky Bottom Input Sheet ── */}
       <div className="sticky bottom-0 left-0 right-0 bg-card/95 backdrop-blur-lg border-t border-border z-50 safe-area-bottom">
         <div className="max-w-md mx-auto px-4 pt-3 pb-4">
-          {/* Compact inline inputs */}
+          {/* Stepper inputs — tap +/- to nudge, tap the number to jump to a value */}
           <div className="flex gap-2 mb-3">
-            <div className="flex-1">
-              <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1 text-center">Weight (kg)</label>
-              <input
-                type="number"
-                inputMode="decimal"
-                value={activeLog.weight}
-                onChange={(e) => setLogs((prev) => ({ ...prev, [activeEx.id]: { ...prev[activeEx.id], weight: e.target.value } }))}
-                placeholder="0"
-                className="w-full h-12 text-center text-lg font-bold rounded-xl bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-            </div>
-            <div className="flex-1">
-              <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1 text-center">Reps</label>
-              <input
-                type="number"
-                inputMode="numeric"
-                value={activeLog.reps}
-                onChange={(e) => setLogs((prev) => ({ ...prev, [activeEx.id]: { ...prev[activeEx.id], reps: e.target.value } }))}
-                placeholder="0"
-                className="w-full h-12 text-center text-lg font-bold rounded-xl bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-            </div>
-            <div className="flex-1">
-              <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1 text-center">Sets</label>
-              <input
-                type="number"
-                inputMode="numeric"
-                value={activeLog.series}
-                onChange={(e) => setLogs((prev) => ({ ...prev, [activeEx.id]: { ...prev[activeEx.id], series: e.target.value } }))}
-                placeholder="0"
-                className="w-full h-12 text-center text-lg font-bold rounded-xl bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-            </div>
+            <StepperInput
+              label="Weight (kg)"
+              value={parseFloat(activeLog.weight) || 0}
+              step={2.5}
+              options={WEIGHT_OPTIONS}
+              onChange={(v) => setLogs((prev) => ({ ...prev, [activeEx.id]: { ...prev[activeEx.id], weight: String(v) } }))}
+            />
+            <StepperInput
+              label="Reps"
+              value={parseInt(activeLog.reps) || 0}
+              step={1}
+              options={REPS_OPTIONS}
+              onChange={(v) => setLogs((prev) => ({ ...prev, [activeEx.id]: { ...prev[activeEx.id], reps: String(v) } }))}
+            />
+            <StepperInput
+              label="Sets"
+              value={parseInt(activeLog.series) || 0}
+              step={1}
+              options={SETS_OPTIONS}
+              onChange={(v) => setLogs((prev) => ({ ...prev, [activeEx.id]: { ...prev[activeEx.id], series: String(v) } }))}
+            />
           </div>
 
           {/* Save / Finish row */}
@@ -429,12 +426,6 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
       </div>
 
       <ExerciseGuideModal exerciseName={showGuide} onClose={() => setShowGuide(null)} />
-      <MotivationModal
-        open={motivation.open}
-        title={motivation.title}
-        quote={motivation.quote}
-        onDismiss={dismissMotivation}
-      />
     </div>
   );
 };
