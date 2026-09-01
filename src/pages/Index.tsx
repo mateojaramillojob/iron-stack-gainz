@@ -205,6 +205,22 @@ const Index = () => {
     return map;
   }, [activeSession, sessions]);
 
+  // Last few logged sets per exercise NAME, newest first — shown in the session
+  // view so you can see the trend you're trying to beat.
+  const historyByName = useMemo(() => {
+    const sorted = [...sessions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const map: Record<string, { weight: number; reps: number; series: number; date: string }[]> = {};
+    sorted.forEach((s) => {
+      s.exercises.forEach((e) => {
+        const list = (map[e.exerciseName] ||= []);
+        if (list.length < 3) {
+          list.push({ weight: e.weight, reps: e.reps, series: e.series, date: s.date });
+        }
+      });
+    });
+    return map;
+  }, [sessions]);
+
   // Last logged set per exercise NAME (across all sessions) — used for variant lookups
   const previousByName = useMemo(() => {
     const sorted = [...sessions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -247,6 +263,7 @@ const Index = () => {
         previousData={previousData2}
         allTimePRs={allTimePRs}
         previousByName={previousByName}
+        historyByName={historyByName}
       />
     );
   }

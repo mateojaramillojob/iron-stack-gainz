@@ -30,6 +30,10 @@ interface PreviousByNameData {
   [exerciseName: string]: { weight: number; reps: number; series: number; date: string };
 }
 
+interface HistoryByNameData {
+  [exerciseName: string]: { weight: number; reps: number; series: number; date: string }[];
+}
+
 interface WorkoutSessionViewProps {
   routine: Routine;
   day: RoutineDay;
@@ -40,11 +44,23 @@ interface WorkoutSessionViewProps {
   previousData?: PreviousExerciseData;
   allTimePRs?: AllTimePRData;
   previousByName?: PreviousByNameData;
+  historyByName?: HistoryByNameData;
 }
 
 const WEIGHT_OPTIONS = Array.from({ length: 80 }, (_, i) => (i + 1) * 2.5);
 const REPS_OPTIONS = Array.from({ length: 30 }, (_, i) => i + 1);
 const SETS_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1);
+
+// Relative for the recent past, then a plain date — quicker to read mid-set.
+const formatHistoryDate = (iso: string) => {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days} days ago`;
+  // Pinned to en-GB: the device locale abbreviates months in a way that can be
+  // misread here (Spanish "24 ago" looks like English "24 ago[o]").
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+};
 
 interface StepperInputProps {
   label: string;
@@ -119,7 +135,7 @@ const StepperInput = ({ label, value, onChange, options, step }: StepperInputPro
   );
 };
 
-const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, editSession, previousData, allTimePRs, previousByName }: WorkoutSessionViewProps) => {
+const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, editSession, previousData, allTimePRs, previousByName, historyByName }: WorkoutSessionViewProps) => {
   const sessionDate = useRef(editSession ? new Date(editSession.date) : new Date()).current;
   const [logs, setLogs] = useState<Record<string, { weight: string; reps: string; series: string }>>(
     editSession
@@ -221,6 +237,12 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
   const lastByDay = previousData?.[activeEx.id];
   const activeLastSession = isVariant ? lastByName : (lastByDay || lastByName);
 
+  // History is keyed by name so switching variant shows that variant's numbers.
+  // When editing a past session, drop entries for the session being edited.
+  const activeHistory = (historyByName?.[activeName] || [])
+    .filter((h) => !editSession || h.date !== editSession.date)
+    .slice(0, 3);
+
   const switchVariant = (newName: string) => {
     setVariantOverrides((prev) => ({ ...prev, [activeEx.id]: newName }));
     // Pre-fill weight/reps from the variant's last session if available
@@ -246,20 +268,47 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto p-4 pb-4 max-w-md mx-auto w-full">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-foreground">{routine.name}</h2>
-          <button onClick={onCancel} className="p-2 rounded-lg bg-secondary text-secondary-foreground active:scale-95 transition-transform">
-            <X size={20} />
-          </button>
+    // Fixed-height column: header and action bar are pinned, and the middle
+    // section centres its content so leftover space is shared above and below
+    // instead of collecting as one dead gap above the inputs.
+    <div className="h-[100dvh] bg-background flex flex-col">
+      {/* Header — routine, position in session, and exit */}
+      <div className="shrink-0 max-w-md mx-auto w-full px-4 pt-4 pb-3 flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-bold text-foreground truncate leading-tight">{routine.name}</h2>
+          <p className="text-xs text-muted-foreground">
+            {savedExercises.size} of {day.exercises.length} logged
+          </p>
         </div>
+        <span className="shrink-0 px-2.5 py-1 rounded-full bg-muted text-xs font-bold font-mono-display text-muted-foreground">
+          {activeCardIndex + 1}/{day.exercises.length}
+        </span>
+        <button onClick={onCancel} aria-label="Close session"
+          className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-secondary text-secondary-foreground active:scale-95 transition-transform">
+          <X size={18} />
+        </button>
+      </div>
 
-        {/* Exercise Card — leads with the big picture, everything else follows below */}
-        <div className="mb-4">
-          <AnimatePresence mode="wait">
+      {/* Content fills the space between header and action bar */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="min-h-full max-w-md mx-auto w-full px-4 py-2 flex flex-col justify-center">
+          {/* Progress dots */}
+          <div className="flex items-center justify-center gap-1.5 mb-3">
+            {day.exercises.map((ex, idx) => (
+              <button key={ex.id} onClick={() => setActiveCardIndex(idx)}
+                aria-label={`Go to exercise ${idx + 1}`}
+                className="h-6 flex items-center">
+                <span className={cn(
+                  "h-2 rounded-full transition-all block",
+                  idx === activeCardIndex ? "w-6 bg-primary" : savedExercises.has(ex.id) ? "w-2 bg-primary/50" : "w-2 bg-border"
+                )} />
+              </button>
+            ))}
+          </div>
+
+          {/* Exercise Card — leads with the big picture, everything else follows below */}
+          <div>
+            <AnimatePresence mode="wait">
             <motion.div
               key={activeEx.id}
               initial={{ opacity: 0, x: 60, scale: 0.95 }}
@@ -268,9 +317,9 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               className="w-full"
             >
-              <div className="bg-card rounded-2xl border border-border p-5 shadow-lg"
+              <div className="bg-card rounded-2xl border border-border p-4 shadow-lg"
                 style={{ borderTopWidth: 4, borderTopColor: activeEx.color || '#10b981' }}>
-                {/* Reference illustration — how to perform this exercise, first thing you see */}
+                {/* Reference illustration — grows to absorb any leftover height */}
                 <ExerciseReferenceMedia exerciseName={activeName} className="mb-3" />
 
                 {/* Exercise header */}
@@ -314,7 +363,7 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
                   {isVariant && <span className="ml-1 text-primary">· variant</span>}
                 </p>
 
-                {/* Compact stats strip — PR / last session / volume */}
+                {/* Compact stats strip — PR and this session's running volume */}
                 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
                   {activePR > 0 && (
                     <span className={cn(
@@ -324,57 +373,73 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
                       <Trophy size={11} /> {isNewPR ? `NEW PR ${activeWeight}kg` : `PR ${activePR}kg`}
                     </span>
                   )}
-                  {activeLastSession && (
-                    <span className="px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-[11px] font-semibold whitespace-nowrap shrink-0">
-                      Last {activeLastSession.weight}kg × {activeLastSession.reps} × {activeLastSession.series}
-                    </span>
-                  )}
                   <span className="px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-[11px] font-semibold whitespace-nowrap shrink-0">
                     Vol {((parseFloat(activeLog.weight) || 0) * (parseInt(activeLog.reps) || 0) * (parseInt(activeLog.series) || 0)).toLocaleString()}kg
                   </span>
                 </div>
+
+                {/* Recent history — the number you're trying to beat, and the
+                    trend that got you here. Fills the card rather than padding. */}
+                {activeHistory.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                      Last {activeHistory.length === 1 ? "time" : `${activeHistory.length} sessions`}
+                    </p>
+                    <div className="space-y-1.5">
+                      {activeHistory.map((h, i) => (
+                        <div key={`${h.date}-${i}`} className="flex items-center justify-between gap-2">
+                          <span className={cn(
+                            "text-xs shrink-0",
+                            i === 0 ? "text-foreground font-semibold" : "text-muted-foreground"
+                          )}>
+                            {formatHistoryDate(h.date)}
+                          </span>
+                          <span className={cn(
+                            "text-xs font-mono-display whitespace-nowrap",
+                            i === 0 ? "text-foreground font-bold" : "text-muted-foreground"
+                          )}>
+                            {h.weight}kg × {h.reps} × {h.series}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           </AnimatePresence>
 
-          {/* Navigation dots */}
-          <div className="flex items-center justify-center gap-1.5 mt-3">
-            {day.exercises.map((ex, idx) => (
-              <button key={ex.id} onClick={() => setActiveCardIndex(idx)}
-                className={cn(
-                  "h-2 rounded-full transition-all",
-                  idx === activeCardIndex ? "w-6 bg-primary" : savedExercises.has(ex.id) ? "w-2 bg-primary/50" : "w-2 bg-border"
-                )} />
-            ))}
           </div>
-
-          {/* Prev / Next buttons */}
-          <div className="flex items-center justify-between mt-3">
-            <button onClick={goPrev} disabled={activeCardIndex === 0}
-              className="flex items-center gap-1 px-4 py-2 rounded-xl bg-secondary text-secondary-foreground font-semibold text-sm disabled:opacity-30 active:scale-95 transition-transform">
-              <ChevronLeft size={16} /> Prev
-            </button>
-            <span className="text-xs text-muted-foreground font-semibold">{activeCardIndex + 1} / {day.exercises.length}</span>
-            <button onClick={goNext} disabled={activeCardIndex === day.exercises.length - 1}
-              className="flex items-center gap-1 px-4 py-2 rounded-xl bg-secondary text-secondary-foreground font-semibold text-sm disabled:opacity-30 active:scale-95 transition-transform">
-              Next <ChevronRight size={16} />
-            </button>
-          </div>
-
-          {/* What's coming up next */}
-          {nextEx ? (
-            <p className="text-center text-base text-muted-foreground mt-3">
-              Next up: <span className="font-bold text-foreground">{getActiveName(nextEx)}</span>
-            </p>
-          ) : (
-            <p className="text-center text-base font-bold text-foreground mt-3">Last exercise — finish strong 💪</p>
-          )}
         </div>
       </div>
 
-      {/* ── Sticky Bottom Input Sheet ── */}
-      <div className="sticky bottom-0 left-0 right-0 bg-card/95 backdrop-blur-lg border-t border-border z-50 safe-area-bottom">
-        <div className="max-w-md mx-auto px-4 pt-3 pb-4">
+      {/* ── Bottom action bar: navigation and logging grouped as one block ── */}
+      <div className="shrink-0 bg-card border-t border-border safe-area-bottom">
+        <div className="max-w-md mx-auto px-4 pt-2.5 pb-4">
+          {/* Prev / what's next / Next — sits with the controls, not orphaned */}
+          <div className="flex items-center gap-2 mb-3">
+            <button onClick={goPrev} disabled={activeCardIndex === 0}
+              aria-label="Previous exercise"
+              className="w-11 h-11 shrink-0 flex items-center justify-center rounded-xl bg-muted text-foreground disabled:opacity-30 active:scale-95 transition-transform">
+              <ChevronLeft size={20} />
+            </button>
+            <div className="flex-1 min-w-0 text-center px-1">
+              {nextEx ? (
+                <>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold leading-none mb-1">Next up</p>
+                  <p className="text-sm font-bold text-foreground truncate leading-none">{getActiveName(nextEx)}</p>
+                </>
+              ) : (
+                <p className="text-sm font-bold text-foreground leading-none">Last exercise — finish strong 💪</p>
+              )}
+            </div>
+            <button onClick={goNext} disabled={activeCardIndex === day.exercises.length - 1}
+              aria-label="Next exercise"
+              className="w-11 h-11 shrink-0 flex items-center justify-center rounded-xl bg-muted text-foreground disabled:opacity-30 active:scale-95 transition-transform">
+              <ChevronRight size={20} />
+            </button>
+          </div>
+
           {/* Stepper inputs — tap +/- to nudge, tap the number to jump to a value */}
           <div className="flex gap-2 mb-3">
             <StepperInput
