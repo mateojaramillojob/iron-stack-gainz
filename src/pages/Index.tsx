@@ -17,7 +17,6 @@ import AIRoutineBuilder from "@/components/workout/AIRoutineBuilder";
 import NextWorkoutCard from "@/components/workout/NextWorkoutCard";
 import ProgressView from "@/components/workout/ProgressView";
 import RecentSessions from "@/components/workout/RecentSessions";
-import TrainingStats from "@/components/workout/TrainingStats";
 import AICoachChat from "@/components/workout/AICoachChat";
 import CreditRewardModal from "@/components/workout/CreditRewardModal";
 import { Dumbbell, TrendingUp, LogOut, Loader2, Sparkles, User, Brain, Coins, ListChecks } from "lucide-react";
@@ -350,9 +349,7 @@ const Index = () => {
         {/* ── Profile Tab ── */}
         {tab === "profile" && (
           <div className="space-y-4">
-            <ProfileView profile={activeProfile} onProfileUpdated={handleProfileUpdated} />
-
-            <TrainingStats profile={activeProfile} sessions={sessions} />
+            <ProfileView profile={activeProfile} sessions={sessions} onProfileUpdated={handleProfileUpdated} />
 
             <RecentSessions
               sessions={sessions}

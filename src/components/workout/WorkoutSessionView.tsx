@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { RoutineDay, ExerciseLog, WorkoutSession, Routine } from "@/lib/types";
 import { calculateSessionVolume } from "@/lib/calculations";
-import { Check, X, ChevronLeft, ChevronRight, Info, Trophy, Shuffle } from "lucide-react";
+import { Check, X, ChevronLeft, ChevronRight, ChevronDown, Info, Trophy, Shuffle, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -323,45 +323,73 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
                 <ExerciseReferenceMedia exerciseName={activeName} className="mb-3" />
 
                 {/* Exercise header */}
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-start justify-between gap-2 mb-1">
                   <div className="flex items-center gap-2 min-w-0">
                     {savedExercises.has(activeEx.id) && <Check size={18} className="text-primary shrink-0" />}
                     <h3 className="text-lg font-bold text-foreground truncate">{activeName}</h3>
-                    {variantOptions.length > 0 && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            className="p-1.5 rounded-lg bg-primary/10 text-primary active:scale-95 transition-transform"
-                            aria-label="Switch variant"
-                          >
-                            <Shuffle size={14} />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-56">
-                          <DropdownMenuLabel>Switch variant</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          {isVariant && (
-                            <DropdownMenuItem onClick={() => switchVariant(activeEx.name)}>
-                              ↺ Reset to {activeEx.name}
-                            </DropdownMenuItem>
-                          )}
-                          {variantOptions.map((v) => (
-                            <DropdownMenuItem key={v} onClick={() => switchVariant(v)}>
-                              {v}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
                   </div>
-                  <button onClick={() => setShowGuide(activeName)} className="p-1.5 rounded-lg bg-muted text-muted-foreground active:text-primary">
+                  <button onClick={() => setShowGuide(activeName)} aria-label="How to perform"
+                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg bg-muted text-muted-foreground active:text-primary active:scale-95 transition-transform">
                     <Info size={16} />
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground mb-3">
                   {isVariant ? getMuscleGroupForExercise(activeName) : activeEx.muscleGroup} · Default: {activeEx.defaultReps || 10} reps × {activeEx.defaultSets || 3} sets
-                  {isVariant && <span className="ml-1 text-primary">· variant</span>}
                 </p>
+
+                {/* Swapping to a variant is an explicit, labelled action, and it
+                    says what you swapped away from so it's easy to undo. */}
+                {variantOptions.length > 0 && (
+                  <div className="flex items-center gap-2 mb-3">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className={cn(
+                          "flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-bold active:scale-95 transition-transform",
+                          isVariant ? "bg-primary/15 text-primary" : "bg-muted text-foreground"
+                        )}>
+                          <Shuffle size={13} />
+                          {isVariant ? "Swapped" : "Swap exercise"}
+                          <ChevronDown size={13} className="opacity-60" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-64">
+                        <DropdownMenuLabel className="text-xs">Do a different exercise instead</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => switchVariant(activeEx.name)}
+                          className={cn("gap-2", !isVariant && "font-bold text-primary")}
+                        >
+                          {activeEx.name}
+                          <span className="ml-auto text-[10px] text-muted-foreground">
+                            {isVariant ? "original" : "current"}
+                          </span>
+                        </DropdownMenuItem>
+                        {variantOptions.map((v) => (
+                          <DropdownMenuItem
+                            key={v}
+                            onClick={() => switchVariant(v)}
+                            className={cn("gap-2", v === activeName && "font-bold text-primary")}
+                          >
+                            {v}
+                            {v === activeName && (
+                              <span className="ml-auto text-[10px] text-muted-foreground">current</span>
+                            )}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {isVariant && (
+                      <button
+                        onClick={() => switchVariant(activeEx.name)}
+                        className="flex items-center gap-1.5 h-9 px-3 rounded-lg bg-muted text-muted-foreground text-xs font-semibold min-w-0 active:scale-95 transition-transform"
+                      >
+                        <RotateCcw size={12} className="shrink-0" />
+                        <span className="truncate">Back to {activeEx.name}</span>
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Compact stats strip — PR and this session's running volume */}
                 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">

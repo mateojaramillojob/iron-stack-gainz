@@ -41,6 +41,18 @@ const EXERCISE_PHOTO_SLUGS: Record<string, string> = {
   "Cable Crunches": "cable-crunches",
   "Weighted Plank": "weighted-plank",
 
+  "Preacher Curls": "preacher-curls",
+
+  // Swap variants whose photo already depicts exactly that movement — the
+  // chart's panel title differed, but the illustration is the same lift.
+  "Hack Squat": "squats-machine",
+  "Seated Leg Curl": "hamstring-curls",
+  "Bent-Over Row (BB)": "chest-supported-row",
+  "Machine Hip Thrust": "hip-thrusts",
+  // Same movement and body position, different implement
+  "Cable Lateral Raises": "lateral-raises",
+  "Incline BB Press": "incline-db-press",
+
   // Custom exercises reusing the same movement pattern under different loading
   "Calf raises": "calf-raises",
   "Squats": "squats-bb",
