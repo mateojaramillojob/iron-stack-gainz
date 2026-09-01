@@ -9,17 +9,25 @@ const EXERCISE_PHOTO_SLUGS: Record<string, string> = {
   "Pull-Ups": "pull-ups",
   // Quads
   "Squats (BB)": "squats-bb",
+  "Squats (Machine)": "squats-machine",
   "Leg Press": "leg-press",
   "Leg Extension": "leg-extension",
   "Walking Lunges": "walking-lunges",
+  "Step Ups": "step-ups",
   // Glutes / Hams
   "RDLs": "rdls",
   "Hamstring Curls": "hamstring-curls",
   "Hip Thrusts": "hip-thrusts",
+  "Glute Bridge": "glute-bridge",
   "Bulgarian Split Squats": "bulgarian-split-squats",
+  "Cable Kickbacks": "cable-kickbacks",
   "Cable Abductions": "cable-abductions",
+  // Chest
+  "Incline DB Press": "incline-db-press",
   // Shoulders
   "Shoulder Press (BB)": "shoulder-press-bb",
+  "Shoulder Press (DB)": "shoulder-press-db",
+  "Arnold Press": "arnold-press",
   "Lateral Raises": "lateral-raises",
   "Rear Delt Fly": "rear-delt-fly",
   "Face Pulls": "face-pulls",
@@ -31,13 +39,15 @@ const EXERCISE_PHOTO_SLUGS: Record<string, string> = {
   "Hanging Leg Raises": "hanging-leg-raises",
   "Russian Twists": "russian-twists",
   "Cable Crunches": "cable-crunches",
+  "Weighted Plank": "weighted-plank",
 
   // Custom exercises reusing the same movement pattern under different loading
   "Calf raises": "calf-raises",
   "Squats": "squats-bb",
   "Assisted Pull-Ups": "pull-ups",
   "Machine Lateral Raises": "lateral-raises",
-  "Machine Shoulder Press": "shoulder-press-bb",
+  "Machine Shoulder Press": "shoulder-press-db",
+  "Incline Machine Press": "incline-db-press",
 };
 
 export function getExercisePhoto(exerciseName: string): string | null {

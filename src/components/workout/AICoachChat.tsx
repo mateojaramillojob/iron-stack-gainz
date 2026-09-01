@@ -199,6 +199,9 @@ const AICoachChat = ({ sessions, profileName, profileId, credits, onCreditsChang
             <p className="text-xs text-muted-foreground mb-4 flex items-center justify-center gap-1">
               <Zap size={12} className="text-primary" /> First question of the day is free · {QUESTION_COST} credits after
             </p>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-left mb-2">
+              Based on your training data
+            </p>
             <div className="space-y-2 text-left">
               {suggestions.map((qa) => (
                 <button
