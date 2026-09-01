@@ -19,7 +19,7 @@ const ExerciseGuideModal = ({ exerciseName, onClose }: ExerciseGuideModalProps) 
     <Dialog open={!!exerciseName} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-sm mx-auto rounded-2xl">
         <DialogHeader>
-          <ExerciseReferenceMedia exerciseName={exerciseName} className="h-40 mb-2" />
+          <ExerciseReferenceMedia exerciseName={exerciseName} className="mb-2" />
           <DialogTitle className="text-lg font-bold">{exerciseName}</DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">{muscleGroup}</DialogDescription>
         </DialogHeader>

@@ -271,7 +271,7 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
               <div className="bg-card rounded-2xl border border-border p-5 shadow-lg"
                 style={{ borderTopWidth: 4, borderTopColor: activeEx.color || '#10b981' }}>
                 {/* Reference illustration — how to perform this exercise, first thing you see */}
-                <ExerciseReferenceMedia exerciseName={activeName} className="h-48 mb-3" />
+                <ExerciseReferenceMedia exerciseName={activeName} className="mb-3" />
 
                 {/* Exercise header */}
                 <div className="flex items-center justify-between mb-1">
