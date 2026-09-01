@@ -115,12 +115,16 @@ const ProfileView = ({ profile, onProfileUpdated }: ProfileViewProps) => {
         </div>
       </div>
 
-      {/* Card 2: Physical Stats */}
+      {/* Card 2: Body — feeds relative-strength and lean-mass below, and gives
+          the AI coach context when it recommends weights. */}
       <div className="bg-card rounded-xl border border-border p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Activity size={16} className="text-primary" />
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Physical Stats</h3>
+        <div className="flex items-center gap-2 mb-1">
+          <Activity size={16} className="text-muted-foreground" />
+          <h3 className="text-sm font-bold text-foreground">Body</h3>
         </div>
+        <p className="text-[11px] text-muted-foreground mb-3">
+          Used for your strength ratios and to give Max better advice.
+        </p>
         {editing ? (
           <div className="grid grid-cols-2 gap-3">
             {[

@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { WorkoutSession } from "@/lib/types";
-import { Brain, Send, Loader2, Coins, Zap } from "lucide-react";
+import { Brain, Send, Loader2, Coins, Zap, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { checkFreeQuestion, useFreeQuestion, spendCredits, MuscleCredits } from "@/lib/creditsService";
+import { buildCoachSuggestions } from "@/lib/coachSuggestions";
 
 interface AICoachChatProps {
   sessions: WorkoutSession[];
@@ -10,25 +11,58 @@ interface AICoachChatProps {
   profileId: string;
   credits: MuscleCredits | null;
   onCreditsChange: () => void;
+  nextDayLabel?: string;
+  nextExercises?: string[];
 }
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-const QUICK_ACTIONS = [
-  { label: "📊 Analyze progress", prompt: "Analyze my progress over the last 30 days. Summarize my strength and volume gains." },
-  { label: "🧱 Stuck on plateau", prompt: "I feel stuck on a plateau. Suggest exercise variations or a deload cycle for my stalled lifts." },
-  { label: "🔄 Quick substitute", prompt: "Suggest a quick substitute exercise I can do if a machine is busy." },
-  { label: "📈 Check volume", prompt: "Check my volume distribution. Am I overtraining or undertraining any muscle groups?" },
-  { label: "🩹 Soreness advice", prompt: "I have some soreness. How should I modify my workout today?" },
-];
-
 const QUESTION_COST = 3;
 
-const AICoachChat = ({ sessions, profileName, profileId, credits, onCreditsChange }: AICoachChatProps) => {
+// The coach answers in markdown. Rather than pull in a full parser, handle the
+// few things it actually uses: headings, bullets and **bold**.
+const inline = (text: string) =>
+  text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+    part.startsWith("**") && part.endsWith("**") ? (
+      <strong key={i} className="font-bold">{part.slice(2, -2)}</strong>
+    ) : (
+      <span key={i}>{part}</span>
+    )
+  );
+
+const CoachMarkdown = ({ text }: { text: string }) => (
+  <div className="space-y-1.5">
+    {text.split("\n").map((raw, i) => {
+      const line = raw.trim();
+      if (!line) return <div key={i} className="h-1.5" />;
+      if (/^#{1,6}\s/.test(line)) {
+        return <p key={i} className="font-bold text-foreground pt-1">{inline(line.replace(/^#{1,6}\s/, ""))}</p>;
+      }
+      if (/^([-*]|\d+\.)\s/.test(line)) {
+        return (
+          <div key={i} className="flex gap-2">
+            <span className="text-primary shrink-0">&bull;</span>
+            <span>{inline(line.replace(/^([-*]|\d+\.)\s/, ""))}</span>
+          </div>
+        );
+      }
+      return <p key={i}>{inline(line)}</p>;
+    })}
+  </div>
+);
+
+const AICoachChat = ({ sessions, profileName, profileId, credits, onCreditsChange, nextDayLabel, nextExercises }: AICoachChatProps) => {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Suggestions are computed from the user's own logs, so they name real
+  // exercises and real numbers instead of generic prompts.
+  const suggestions = useMemo(
+    () => buildCoachSuggestions(sessions, { nextDayLabel, nextExercises }),
+    [sessions, nextDayLabel, nextExercises]
+  );
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -44,7 +78,7 @@ const AICoachChat = ({ sessions, profileName, profileId, credits, onCreditsChang
         toast.error(`Not enough Muscle Credits (need ${QUESTION_COST}). Complete workouts to earn more!`);
         return;
       }
-      const spent = await spendCredits(profileId, QUESTION_COST, "AI Coach question");
+      const spent = await spendCredits(profileId, QUESTION_COST, "Max question");
       if (!spent) {
         toast.error("Not enough credits");
         return;
@@ -125,7 +159,7 @@ const AICoachChat = ({ sessions, profileName, profileId, credits, onCreditsChang
       }
     } catch (e) {
       console.error(e);
-      toast.error("Failed to connect to AI Coach");
+      toast.error("Could not reach Max. Try again.");
     } finally {
       setIsLoading(false);
     }
@@ -135,9 +169,14 @@ const AICoachChat = ({ sessions, profileName, profileId, credits, onCreditsChang
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
-        <div className="flex items-center gap-2">
-          <Brain size={20} className="text-primary" />
-          <h2 className="text-lg font-bold text-foreground">AI Coach</h2>
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center">
+            <Brain size={18} className="text-primary" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-foreground leading-none">Max</h2>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Your coach &middot; powered by AI</p>
+          </div>
         </div>
         {credits && (
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-warning/15 border border-warning/30">
@@ -151,19 +190,24 @@ const AICoachChat = ({ sessions, profileName, profileId, credits, onCreditsChang
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 && (
           <div className="text-center pt-8">
-            <Brain size={40} className="mx-auto text-primary/30 mb-3" />
-            <p className="text-sm text-muted-foreground mb-1">Ask me anything about your training!</p>
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+              <Brain size={30} className="text-primary/60" />
+            </div>
+            <p className="text-base font-bold text-foreground mb-1">Hey, I&apos;m Max.</p>
+            <p className="text-sm text-muted-foreground mb-1">Ask me anything about your training.</p>
+            <p className="text-[11px] text-muted-foreground/70 mb-3">I&apos;m an AI assistant, not a certified trainer.</p>
             <p className="text-xs text-muted-foreground mb-4 flex items-center justify-center gap-1">
               <Zap size={12} className="text-primary" /> First question of the day is free · {QUESTION_COST} credits after
             </p>
-            <div className="space-y-2">
-              {QUICK_ACTIONS.map((qa) => (
+            <div className="space-y-2 text-left">
+              {suggestions.map((qa) => (
                 <button
                   key={qa.label}
                   onClick={() => sendMessage(qa.prompt)}
-                  className="w-full text-left px-4 py-3 rounded-xl bg-card border border-border text-sm text-foreground active:scale-[0.98] transition-transform"
+                  className="w-full flex items-center gap-3 text-left px-4 py-3.5 rounded-2xl bg-card border border-border active:scale-[0.98] transition-transform"
                 >
-                  {qa.label}
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                  <span className="text-sm font-medium text-foreground">{qa.label}</span>
                 </button>
               ))}
             </div>
@@ -172,12 +216,12 @@ const AICoachChat = ({ sessions, profileName, profileId, credits, onCreditsChang
 
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+            <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
               msg.role === "user"
-                ? "bg-primary text-primary-foreground rounded-br-md"
+                ? "bg-primary text-primary-foreground rounded-br-md whitespace-pre-wrap"
                 : "bg-card border border-border text-foreground rounded-bl-md"
             }`}>
-              {msg.content}
+              {msg.role === "user" ? msg.content : <CoachMarkdown text={msg.content} />}
             </div>
           </div>
         ))}
@@ -194,12 +238,20 @@ const AICoachChat = ({ sessions, profileName, profileId, credits, onCreditsChang
       {/* Quick actions when in conversation */}
       {messages.length > 0 && (
         <div className="px-4 pb-2 flex gap-2 overflow-x-auto scrollbar-thin">
-          {QUICK_ACTIONS.map((qa) => (
+          <button
+            onClick={() => setMessages([])}
+            disabled={isLoading}
+            aria-label="Start a new conversation"
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-full bg-muted border border-border text-xs font-medium text-muted-foreground active:scale-95 transition-transform disabled:opacity-40"
+          >
+            <RotateCcw size={12} /> New
+          </button>
+          {suggestions.map((qa) => (
             <button
               key={qa.label}
               onClick={() => sendMessage(qa.prompt)}
               disabled={isLoading}
-              className="flex-shrink-0 px-3 py-1.5 rounded-full bg-muted/50 border border-border text-xs text-muted-foreground active:scale-95 transition-transform disabled:opacity-40"
+              className="flex-shrink-0 px-3 py-2 rounded-full bg-muted border border-border text-xs font-medium text-muted-foreground active:scale-95 transition-transform disabled:opacity-40 whitespace-nowrap"
             >
               {qa.label}
             </button>
@@ -215,7 +267,7 @@ const AICoachChat = ({ sessions, profileName, profileId, credits, onCreditsChang
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage(input)}
-            placeholder="Ask your AI Coach..."
+            placeholder="Ask Max..."
             disabled={isLoading}
             className="flex-1 px-4 py-3 rounded-xl bg-muted/50 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
           />

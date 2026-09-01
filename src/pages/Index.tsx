@@ -12,16 +12,18 @@ import {
 import ProfileSelector from "@/components/workout/ProfileSelector";
 import RoutineManager from "@/components/workout/RoutineManager";
 import WorkoutSessionView from "@/components/workout/WorkoutSessionView";
-import Dashboard from "@/components/workout/Dashboard";
 import ProfileView from "@/components/workout/ProfileView";
 import AIRoutineBuilder from "@/components/workout/AIRoutineBuilder";
-import AnalyticsDashboard from "@/components/workout/AnalyticsDashboard";
+import NextWorkoutCard from "@/components/workout/NextWorkoutCard";
+import ProgressView from "@/components/workout/ProgressView";
+import RecentSessions from "@/components/workout/RecentSessions";
+import TrainingStats from "@/components/workout/TrainingStats";
 import AICoachChat from "@/components/workout/AICoachChat";
 import CreditRewardModal from "@/components/workout/CreditRewardModal";
-import { Dumbbell, BarChart3, ListChecks, Play, LogOut, Loader2, Sparkles, User, Brain, Coins } from "lucide-react";
+import { Dumbbell, TrendingUp, LogOut, Loader2, Sparkles, User, Brain, Coins, ListChecks } from "lucide-react";
 import { toast } from "sonner";
 
-type Tab = "routines" | "dashboard" | "coach" | "profile";
+type Tab = "train" | "progress" | "coach" | "profile";
 
 const Index = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -32,7 +34,7 @@ const Index = () => {
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [customExercises, setCustomExercises] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>("routines");
+  const [tab, setTab] = useState<Tab>("train");
   const [activeSession, setActiveSession] = useState<{ routine: Routine; day: RoutineDay; editSession?: WorkoutSession } | null>(null);
   const [showAIBuilder, setShowAIBuilder] = useState(false);
   const [managingRoutines, setManagingRoutines] = useState(false);
@@ -140,7 +142,7 @@ const Index = () => {
     setCredits(updatedCredits);
     setRewardModal({ open: true, breakdown, total, newBalance: updatedCredits.balance });
 
-    setTab("dashboard");
+    setTab("progress");
   };
 
   const autoSaveSession = async (session: WorkoutSession) => {
@@ -282,98 +284,36 @@ const Index = () => {
           </div>
         </div>
 
-        {/* ── Routines Tab ── */}
-        {tab === "routines" && (
-          <div>
-            {(() => {
-              const upNext = getUpNextDay();
-              if (upNext) {
-                return (
-                  <div className="mb-5">
-                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Up Next</h2>
-                    <div className="bg-card rounded-2xl border-2 border-primary/40 p-5 shadow-lg relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full -translate-y-8 translate-x-8" />
-                      <div className="relative">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Dumbbell size={18} className="text-primary" />
-                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{upNext.routine.name}</span>
-                        </div>
-                        <h3 className="text-xl font-black text-foreground mb-2">{upNext.day.label}</h3>
-                        <p className="text-sm text-muted-foreground mb-4">
-                          {upNext.day.exercises.map((e) => e.name).join(" · ")}
-                        </p>
-                        <button onClick={() => setActiveSession({ routine: upNext.routine, day: upNext.day })}
-                          className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-bold text-base active:scale-[0.98] transition-transform shadow-lg">
-                          <Play size={18} className="inline mr-2 -mt-0.5" />
-                          Start Session
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-              return null;
-            })()}
-
-            <button onClick={() => setShowAIBuilder(true)}
-              className="w-full flex items-center gap-3 p-4 mb-4 bg-primary/10 rounded-xl border border-primary/20 active:scale-[0.98] transition-transform">
-              <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-                <Sparkles size={20} className="text-primary-foreground" />
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-bold text-foreground">AI Routine Builder</p>
-                <p className="text-xs text-muted-foreground">Generate a personalized routine in seconds</p>
-              </div>
-            </button>
-
-            <div className="mb-4">
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">All Workouts</h2>
-              {routines.length > 0 ? (
-                <div className="space-y-3">
-                  {routines.map((routine) => (
-                    <div key={routine.id} className="bg-card rounded-xl border border-border p-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Dumbbell size={16} className="text-primary" />
-                        <h3 className="font-bold text-foreground">{routine.name}</h3>
-                      </div>
-                      <div className="space-y-2">
-                        {routine.days.map((day) => (
-                          <button key={day.id} onClick={() => setActiveSession({ routine, day })}
-                            className="w-full flex items-center justify-between p-3 bg-muted rounded-lg active:scale-[0.98] transition-transform">
-                            <div className="text-left">
-                              <p className="text-sm font-semibold text-foreground">{day.label}</p>
-                              <p className="text-xs text-muted-foreground">{day.exercises.map((e) => e.name).join(", ")}</p>
-                            </div>
-                            <Play size={16} className="text-primary" />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
+        {/* ── Train Tab ── */}
+        {tab === "train" && (() => {
+          const upNext = getUpNextDay();
+          if (!upNext) {
+            return (
+              <div className="rounded-3xl bg-card border border-dashed border-border p-8 text-center">
+                <Dumbbell size={32} className="text-muted-foreground mx-auto mb-3" />
+                <p className="text-sm font-semibold text-foreground mb-1">No routine yet</p>
+                <p className="text-xs text-muted-foreground mb-5">Build one and your next workout shows up here.</p>
                 <button onClick={() => setShowAIBuilder(true)}
-                  className="w-full py-6 bg-card rounded-xl border border-dashed border-border text-muted-foreground text-sm font-medium active:scale-[0.98] transition-transform">
-                  Create your first routine →
+                  className="w-full h-12 rounded-2xl bg-primary text-primary-foreground font-bold text-sm active:scale-[0.98] transition-transform">
+                  Create a routine
                 </button>
-              )}
-            </div>
+              </div>
+            );
+          }
+          return (
+            <NextWorkoutCard
+              routine={upNext.routine}
+              day={upNext.day}
+              routines={routines}
+              previousByName={previousByName}
+              onStart={(routine, day) => setActiveSession({ routine, day })}
+              onPickDay={(routine, day) => setActiveSession({ routine, day })}
+            />
+          );
+        })()}
 
-            <button onClick={() => setManagingRoutines(true)}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-secondary text-secondary-foreground font-semibold text-sm active:scale-[0.98] transition-transform">
-              <ListChecks size={16} />
-              Manage Routines
-            </button>
-          </div>
-        )}
-
-        {/* ── Dashboard Tab ── */}
-        {tab === "dashboard" && (
-          <div className="space-y-4">
-            <AnalyticsDashboard sessions={sessions} />
-            <Dashboard sessions={sessions} onEditSession={editSession} onDeleteSession={deleteSession} profileName={activeProfile?.name} />
-          </div>
-        )}
+        {/* ── Progress Tab ── */}
+        {tab === "progress" && <ProgressView sessions={sessions} />}
 
         {/* ── AI Coach Tab ── */}
         {tab === "coach" && activeProfileId && (
@@ -384,31 +324,82 @@ const Index = () => {
               profileId={activeProfileId}
               credits={credits}
               onCreditsChange={loadCredits}
+              nextDayLabel={getUpNextDay()?.day.label}
+              nextExercises={getUpNextDay()?.day.exercises.map((e) => e.name)}
             />
           </div>
         )}
 
         {/* ── Profile Tab ── */}
         {tab === "profile" && (
-          <ProfileView profile={activeProfile} onProfileUpdated={handleProfileUpdated} />
+          <div className="space-y-4">
+            <ProfileView profile={activeProfile} onProfileUpdated={handleProfileUpdated} />
+
+            <TrainingStats profile={activeProfile} sessions={sessions} />
+
+            <RecentSessions
+              sessions={sessions}
+              onEditSession={editSession}
+              onDeleteSession={deleteSession}
+            />
+
+            {/* Routine management lives here, out of the daily training path */}
+            <div className="rounded-3xl bg-card border border-border p-4 space-y-2">
+              <h3 className="text-sm font-bold text-foreground mb-3">Routines</h3>
+              <button onClick={() => setShowAIBuilder(true)}
+                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-muted active:scale-[0.98] transition-transform text-left">
+                <div className="w-10 h-10 shrink-0 rounded-xl bg-primary/15 flex items-center justify-center">
+                  <Sparkles size={18} className="text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Create with AI</p>
+                  <p className="text-[11px] text-muted-foreground">Generate a personalized routine</p>
+                </div>
+              </button>
+              <button onClick={() => setManagingRoutines(true)}
+                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-muted active:scale-[0.98] transition-transform text-left">
+                <div className="w-10 h-10 shrink-0 rounded-xl bg-secondary flex items-center justify-center">
+                  <ListChecks size={18} className="text-secondary-foreground" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Manage routines</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {routines.length} {routines.length === 1 ? "routine" : "routines"} · edit, add or remove
+                  </p>
+                </div>
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-card/90 backdrop-blur-lg border-t border-border z-50">
-        <div className="max-w-md mx-auto flex">
+      {/* Bottom Nav — 4 destinations, 56px targets, active state shown by both
+          an accent pill behind the icon and the label weight. */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-lg border-t border-border z-50">
+        <div className="max-w-md mx-auto flex px-2 pt-1.5 pb-2">
           {([
-            { key: "routines" as Tab, icon: ListChecks, label: "Routines" },
-            { key: "dashboard" as Tab, icon: BarChart3, label: "Dashboard" },
-            { key: "coach" as Tab, icon: Brain, label: "AI Coach" },
+            { key: "train" as Tab, icon: Dumbbell, label: "Train" },
+            { key: "progress" as Tab, icon: TrendingUp, label: "Progress" },
+            { key: "coach" as Tab, icon: Brain, label: "Max" },
             { key: "profile" as Tab, icon: User, label: "Profile" },
-          ]).map(({ key, icon: Icon, label }) => (
-            <button key={key} onClick={() => setTab(key)}
-              className={`flex-1 flex flex-col items-center gap-1 py-3 transition-colors ${tab === key ? "text-primary" : "text-muted-foreground"}`}>
-              <Icon size={22} />
-              <span className="text-xs font-medium">{label}</span>
-            </button>
-          ))}
+          ]).map(({ key, icon: Icon, label }) => {
+            const active = tab === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                aria-current={active ? "page" : undefined}
+                className="flex-1 min-h-[56px] flex flex-col items-center justify-center gap-1 rounded-xl active:scale-95 transition-transform"
+              >
+                <span className={`flex items-center justify-center h-7 w-12 rounded-full transition-colors ${active ? "bg-primary/15" : ""}`}>
+                  <Icon size={20} className={active ? "text-primary" : "text-muted-foreground"} />
+                </span>
+                <span className={`text-[11px] ${active ? "font-bold text-primary" : "font-medium text-muted-foreground"}`}>
+                  {label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </nav>
 
