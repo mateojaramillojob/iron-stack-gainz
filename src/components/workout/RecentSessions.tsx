@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { WorkoutSession } from "@/lib/types";
+import { Routine, WorkoutSession } from "@/lib/types";
 import { format, parseISO } from "date-fns";
 import { Pencil, Trash2, History } from "lucide-react";
+import { getDayName } from "@/lib/routineNaming";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -9,13 +10,20 @@ import {
 
 interface RecentSessionsProps {
   sessions: WorkoutSession[];
+  routines: Routine[];
   onEditSession?: (session: WorkoutSession) => void;
   onDeleteSession?: (sessionId: string) => void;
 }
 
-const RECENT_COUNT = 5;
+const RECENT_COUNT = 3;
 
-const RecentSessions = ({ sessions, onEditSession, onDeleteSession }: RecentSessionsProps) => {
+const RecentSessions = ({ sessions, routines, onEditSession, onDeleteSession }: RecentSessionsProps) => {
+  // Sessions store the label as it was at the time; resolve back to the live
+  // day so a renamed or derived name shows here too.
+  const nameFor = (s: WorkoutSession) => {
+    const day = routines.find((r) => r.id === s.routineId)?.days.find((d) => d.id === s.dayId);
+    return day ? getDayName(day) : s.dayLabel;
+  };
   const recent = useMemo(
     () => [...sessions]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -41,10 +49,10 @@ const RecentSessions = ({ sessions, onEditSession, onDeleteSession }: RecentSess
                 className="flex-1 min-w-0 text-left active:scale-[0.98] transition-transform"
               >
                 <p className="text-sm font-semibold text-foreground truncate">
-                  {session.routineName} — {session.dayLabel}
+                  {nameFor(session)}
                 </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {format(parseISO(session.date), "MMM d, yyyy")} · {session.totalVolume.toLocaleString()} kg
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {session.routineName} · {format(parseISO(session.date), "d MMM yyyy")}
                 </p>
               </button>
               {onEditSession && (
@@ -70,7 +78,7 @@ const RecentSessions = ({ sessions, onEditSession, onDeleteSession }: RecentSess
                     <AlertDialogHeader>
                       <AlertDialogTitle>Delete this session?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This will permanently remove the "{session.routineName} — {session.dayLabel}" session from{" "}
+                        This will permanently remove the "{nameFor(session)}" session from{" "}
                         {format(parseISO(session.date), "MMM d, yyyy")}. This cannot be undone.
                       </AlertDialogDescription>
                     </AlertDialogHeader>

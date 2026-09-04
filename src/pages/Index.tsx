@@ -18,7 +18,7 @@ import NextWorkoutCard from "@/components/workout/NextWorkoutCard";
 import ProgressView from "@/components/workout/ProgressView";
 import RecentSessions from "@/components/workout/RecentSessions";
 import AICoachChat from "@/components/workout/AICoachChat";
-import CreditRewardModal from "@/components/workout/CreditRewardModal";
+import SessionSummary from "@/components/workout/SessionSummary";
 import { Dumbbell, TrendingUp, LogOut, Loader2, Sparkles, User, Brain, Coins, ListChecks } from "lucide-react";
 import { toast } from "sonner";
 
@@ -38,8 +38,13 @@ const Index = () => {
   const [showAIBuilder, setShowAIBuilder] = useState(false);
   const [managingRoutines, setManagingRoutines] = useState(false);
   const [credits, setCredits] = useState<MuscleCredits | null>(null);
-  const [rewardModal, setRewardModal] = useState<{ open: boolean; breakdown: { label: string; amount: number }[]; total: number; newBalance: number }>({
-    open: false, breakdown: [], total: 0, newBalance: 0,
+  // The routine you're currently following. Everything on Train follows this
+  // one until you deliberately change it.
+  const [activeRoutineId, setActiveRoutineId] = useState<string | null>(() => {
+    try { return localStorage.getItem("ironstack-active-routine-id"); } catch { return null; }
+  });
+  const [summary, setSummary] = useState<{ open: boolean; session: WorkoutSession | null; credits: number }>({
+    open: false, session: null, credits: 0,
   });
 
   useEffect(() => {
@@ -67,6 +72,21 @@ const Index = () => {
 
   const activeProfile = profiles.find((p) => p.id === activeProfileId) || null;
 
+  // Fall back to the first routine if nothing is chosen yet or the chosen one
+  // was deleted, so Train always has something to show.
+  const activeRoutine = routines.find((r) => r.id === activeRoutineId) || routines[0] || null;
+
+  useEffect(() => {
+    if (activeRoutine && activeRoutine.id !== activeRoutineId) {
+      setActiveRoutineId(activeRoutine.id);
+    }
+  }, [activeRoutine, activeRoutineId]);
+
+  const changeRoutine = (id: string) => {
+    setActiveRoutineId(id);
+    try { localStorage.setItem("ironstack-active-routine-id", id); } catch { /* ignore */ }
+  };
+
   // All-time PRs per exercise name
   const allTimePRs = useMemo(() => {
     const prs: Record<string, number> = {};
@@ -78,23 +98,18 @@ const Index = () => {
     return prs;
   }, [sessions]);
 
+  // Next day within the routine you're following: the one after whichever of
+  // its days you trained most recently.
   const getUpNextDay = useCallback(() => {
-    if (!routines.length) return null;
-    const sorted = [...sessions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    const lastSession = sorted[0];
-    if (!lastSession) {
-      const r = routines[0];
-      return r.days.length ? { routine: r, day: r.days[0] } : null;
-    }
-    const routine = routines.find((r) => r.id === lastSession.routineId);
-    if (!routine) {
-      const r = routines[0];
-      return r.days.length ? { routine: r, day: r.days[0] } : null;
-    }
-    const lastDayIdx = routine.days.findIndex((d) => d.id === lastSession.dayId);
-    const nextDayIdx = (lastDayIdx + 1) % routine.days.length;
-    return { routine, day: routine.days[nextDayIdx] };
-  }, [routines, sessions]);
+    if (!activeRoutine?.days.length) return null;
+    const lastForRoutine = [...sessions]
+      .filter((s) => s.routineId === activeRoutine.id)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+    if (!lastForRoutine) return { routine: activeRoutine, day: activeRoutine.days[0] };
+    const lastIdx = activeRoutine.days.findIndex((d) => d.id === lastForRoutine.dayId);
+    const nextIdx = (lastIdx + 1) % activeRoutine.days.length;
+    return { routine: activeRoutine, day: activeRoutine.days[nextIdx] };
+  }, [activeRoutine, sessions]);
 
   const saveProfile = async (profile: Profile) => {
     await insertProfile(profile);
@@ -134,14 +149,10 @@ const Index = () => {
     });
     setActiveSession(null);
 
-    // Calculate and award credits
-    const { total, breakdown } = calculateSessionCredits(session, sessions, hasPR);
+    const { total } = calculateSessionCredits(session, sessions, hasPR);
     await earnCredits(activeProfileId, total, "session_complete", `Completed ${session.routineName} - ${session.dayLabel}`);
-    const updatedCredits = await fetchCredits(activeProfileId);
-    setCredits(updatedCredits);
-    setRewardModal({ open: true, breakdown, total, newBalance: updatedCredits.balance });
-
-    setTab("progress");
+    setCredits(await fetchCredits(activeProfileId));
+    setSummary({ open: true, session, credits: total });
   };
 
   const autoSaveSession = async (session: WorkoutSession) => {
@@ -324,6 +335,7 @@ const Index = () => {
               previousByName={previousByName}
               onStart={(routine, day) => setActiveSession({ routine, day })}
               onPickDay={(routine, day) => setActiveSession({ routine, day })}
+              onChangeRoutine={changeRoutine}
             />
           );
         })()}
@@ -353,6 +365,7 @@ const Index = () => {
 
             <RecentSessions
               sessions={sessions}
+              routines={routines}
               onEditSession={editSession}
               onDeleteSession={deleteSession}
             />
@@ -417,13 +430,13 @@ const Index = () => {
         </div>
       </nav>
 
-      {/* Credit Reward Modal */}
-      <CreditRewardModal
-        open={rewardModal.open}
-        onClose={() => setRewardModal((p) => ({ ...p, open: false }))}
-        breakdown={rewardModal.breakdown}
-        total={rewardModal.total}
-        newBalance={rewardModal.newBalance}
+      <SessionSummary
+        open={summary.open}
+        session={summary.session}
+        sessions={sessions}
+        profileName={activeProfile?.name}
+        creditsEarned={summary.credits}
+        onClose={() => setSummary((p) => ({ ...p, open: false }))}
       />
     </div>
   );

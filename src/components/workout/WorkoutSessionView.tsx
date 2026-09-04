@@ -17,6 +17,7 @@ import ExerciseGuideModal from "./ExerciseGuideModal";
 import ExerciseReferenceMedia from "./ExerciseReferenceMedia";
 import { getVariantsFor } from "@/lib/exerciseVariants";
 import { getMuscleGroupForExercise } from "@/lib/exerciseLibrary";
+import { getDayName } from "@/lib/routineNaming";
 
 interface PreviousExerciseData {
   [exerciseId: string]: { weight: number; reps: number; series: number };
@@ -264,7 +265,14 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
   };
 
   const saveActive = () => {
+    const wasAlreadySaved = savedExercises.has(activeEx.id);
     saveExercise(activeEx.id, activeLog.weight, activeLog.reps, activeLog.series);
+    // Logging an exercise almost always means moving on, so advance for them.
+    // Correcting an already-saved entry stays put — they came back on purpose.
+    // The short delay lets the ✓ register before the card slides.
+    if (!wasAlreadySaved && activeCardIndex < day.exercises.length - 1) {
+      setTimeout(() => setActiveCardIndex((i) => Math.min(i + 1, day.exercises.length - 1)), 350);
+    }
   };
 
   return (
@@ -275,9 +283,9 @@ const WorkoutSessionView = ({ routine, day, onFinish, onCancel, onAutoSave, edit
       {/* Header — routine, position in session, and exit */}
       <div className="shrink-0 max-w-md mx-auto w-full px-4 pt-4 pb-3 flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <h2 className="text-lg font-bold text-foreground truncate leading-tight">{routine.name}</h2>
-          <p className="text-xs text-muted-foreground">
-            {savedExercises.size} of {day.exercises.length} logged
+          <h2 className="text-lg font-bold text-foreground truncate leading-tight">{getDayName(day)}</h2>
+          <p className="text-xs text-muted-foreground truncate">
+            {routine.name} · {savedExercises.size} of {day.exercises.length} logged
           </p>
         </div>
         <span className="shrink-0 px-2.5 py-1 rounded-full bg-muted text-xs font-bold font-mono-display text-muted-foreground">

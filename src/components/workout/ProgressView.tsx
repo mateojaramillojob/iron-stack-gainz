@@ -4,7 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recha
 import {
   format, parseISO, addDays, isSameDay, isWithinInterval,
   startOfWeek, endOfWeek, subWeeks,
-  startOfMonth, endOfMonth, subMonths, eachWeekOfInterval,
+  startOfMonth, endOfMonth, subMonths, eachWeekOfInterval, getISOWeek,
 } from "date-fns";
 import { Flame, Trophy, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -75,7 +75,7 @@ const ProgressView = ({ sessions }: ProgressViewProps) => {
         const vol = sessions
           .filter((s) => isSameDay(parseISO(s.date), date))
           .reduce((sum, s) => sum + s.totalVolume, 0);
-        return { label: format(date, "EEEEE"), volume: vol };
+        return { label: format(date, "EEEEE"), sub: format(date, "d"), volume: vol };
       });
     }
     // Each Mon-start week that overlaps the current calendar month.
@@ -84,11 +84,26 @@ const ProgressView = ({ sessions }: ProgressViewProps) => {
       const vol = sessions
         .filter((s) => { const d = parseISO(s.date); return d >= weekStart && d <= weekEnd; })
         .reduce((sum, s) => sum + s.totalVolume, 0);
-      return { label: format(weekStart, "d MMM"), volume: vol };
+      return { label: `W${getISOWeek(weekStart)}`, sub: format(weekStart, "d MMM"), volume: vol };
     });
   }, [sessions, range, period.start, period.end]);
 
   const hasData = chartData.some((d) => d.volume > 0);
+
+  const WeekTick = ({ x, y, index }: { x?: number; y?: number; index?: number }) => {
+    const point = chartData[index ?? 0];
+    if (!point) return null;
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text textAnchor="middle" dy={12} fill="hsl(240 6% 96%)" fontSize={11} fontWeight={600}>
+          {point.label}
+        </text>
+        <text textAnchor="middle" dy={26} fill="hsl(240 5% 62%)" fontSize={10}>
+          {point.sub}
+        </text>
+      </g>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -130,7 +145,16 @@ const ProgressView = ({ sessions }: ProgressViewProps) => {
           <div className="mt-4 -mx-1">
             <ResponsiveContainer width="100%" height={150}>
               <BarChart data={chartData}>
-                <XAxis dataKey="label" tick={{ fill: "hsl(240 5% 62%)", fontSize: 11 }} axisLine={false} tickLine={false} />
+                <XAxis
+                  dataKey="label"
+                  axisLine={false}
+                  tickLine={false}
+                  interval={0}
+                  height={range === "month" ? 34 : 20}
+                  tick={range === "month"
+                    ? (WeekTick as unknown as React.ReactElement)
+                    : { fill: "hsl(240 5% 62%)", fontSize: 11 }}
+                />
                 <YAxis hide />
                 <Tooltip
                   cursor={{ fill: "hsl(240 8% 16%)" }}
@@ -142,6 +166,10 @@ const ProgressView = ({ sessions }: ProgressViewProps) => {
                     fontSize: 12,
                   }}
                   formatter={(v: number) => [`${v.toLocaleString()} kg`, "Volume"]}
+                  labelFormatter={(label: string) => {
+                    const p = chartData.find((d) => d.label === label);
+                    return range === "month" && p ? `${label} · week of ${p.sub}` : label;
+                  }}
                 />
                 <Bar dataKey="volume" fill="hsl(152 76% 47%)" radius={[6, 6, 0, 0]} />
               </BarChart>
